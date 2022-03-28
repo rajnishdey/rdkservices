@@ -71,6 +71,8 @@ using namespace std;
 #define TR181_FW_DELAY_REBOOT "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AutoReboot.fwDelayReboot"
 #define TR181_AUTOREBOOT_ENABLE "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AutoReboot.Enable"
 
+#define RFC_PWRMGR2 "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Power.PwrMgr2.Enable"
+
 #define ZONEINFO_DIR "/usr/share/zoneinfo"
 
 #define DEVICE_PROPERTIES_FILE "/etc/device.properties"
@@ -301,6 +303,7 @@ namespace WPEFramework {
 
             m_networkStandbyModeValid = false;
             m_powerStateBeforeRebootValid = false;
+
 #ifdef ENABLE_DEVICE_MANUFACTURER_INFO
 	    m_ManufacturerDataHardwareIdValid = false;
 	    m_ManufacturerDataModelNameValid = false;
@@ -1618,10 +1621,18 @@ namespace WPEFramework {
                 JsonObject& response)
         {
             bool status = false;
-	    DeepSleep_WakeupReason_t param;
-	    std::string wakeupReason = "WAKEUP_REASON_UNKNOWN";
+            DeepSleep_WakeupReason_t param;
+            std::string wakeupReason = "WAKEUP_REASON_UNKNOWN";
 
-	    IARM_Result_t res = IARM_Bus_Call(IARM_BUS_DEEPSLEEPMGR_NAME,
+            RFC_ParamData_t param;
+            bool pwrmgr2_enabled = false;
+            bool ret = Utils::getRFCConfig(RFC_PWRMGR2, param);
+            if (true == ret && param.type == WDMP_BOOLEAN && (strncasecmp(param.value,"true",4) == 0))
+            {
+                pwrmgr2_enabled = true;
+            }
+
+	        IARM_Result_t res = IARM_Bus_Call((pwrmgr2_enabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
 			IARM_BUS_DEEPSLEEPMGR_API_GetLastWakeupReason, (void *)&param,
 			sizeof(param));
 
@@ -1686,8 +1697,17 @@ namespace WPEFramework {
               bool status = false;
               IARM_Bus_DeepSleepMgr_WakeupKeyCode_Param_t param;
               uint32_t wakeupKeyCode = 0;
+              RFC_ParamData_t param;
+              bool pwrmgr2_enabled = false;
 
-              IARM_Result_t res = IARM_Bus_Call(IARM_BUS_DEEPSLEEPMGR_NAME,
+              bool ret = Utils::getRFCConfig(RFC_PWRMGR2, param);
+
+              if (true == ret && param.type == WDMP_BOOLEAN && (strncasecmp(param.value,"true",4) == 0))
+              {
+                pwrmgr2_enabled = true;
+              }
+
+              IARM_Result_t res = IARM_Bus_Call((pwrmgr2_enabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
                          IARM_BUS_DEEPSLEEPMGR_API_GetLastWakeupKeyCode, (void *)&param,
                          sizeof(param));
               if (IARM_RESULT_SUCCESS == res)
