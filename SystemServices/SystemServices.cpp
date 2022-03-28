@@ -303,6 +303,7 @@ namespace WPEFramework {
 
             m_networkStandbyModeValid = false;
             m_powerStateBeforeRebootValid = false;
+            m_PwrMgrDeepSleepEnabled = false;
 
 #ifdef ENABLE_DEVICE_MANUFACTURER_INFO
 	    m_ManufacturerDataHardwareIdValid = false;
@@ -423,6 +424,15 @@ namespace WPEFramework {
             registerMethod("deletePersistentPath", &SystemServices::deletePersistentPath, this, {2});
             GetHandler(2)->Register<JsonObject, PlatformCaps>("getPlatformConfiguration",
                 &SystemServices::getPlatformConfiguration, this);
+
+            {
+                RFC_ParamData_t param;
+                bool ret = Utils::getRFCConfig(RFC_PWRMGR2, param);
+                if (true == ret && param.type == WDMP_BOOLEAN && (strncasecmp(param.value,"true",4) == 0))
+                {
+                    m_PwrMgrDeepSleepEnabled = true;
+                }
+            }
         }
 
 
@@ -1624,15 +1634,7 @@ namespace WPEFramework {
             DeepSleep_WakeupReason_t param;
             std::string wakeupReason = "WAKEUP_REASON_UNKNOWN";
 
-            RFC_ParamData_t param;
-            bool pwrmgr2_enabled = false;
-            bool ret = Utils::getRFCConfig(RFC_PWRMGR2, param);
-            if (true == ret && param.type == WDMP_BOOLEAN && (strncasecmp(param.value,"true",4) == 0))
-            {
-                pwrmgr2_enabled = true;
-            }
-
-	        IARM_Result_t res = IARM_Bus_Call((pwrmgr2_enabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
+	        IARM_Result_t res = IARM_Bus_Call((m_PwrMgrDeepSleepEnabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
 			IARM_BUS_DEEPSLEEPMGR_API_GetLastWakeupReason, (void *)&param,
 			sizeof(param));
 
@@ -1697,17 +1699,8 @@ namespace WPEFramework {
               bool status = false;
               IARM_Bus_DeepSleepMgr_WakeupKeyCode_Param_t param;
               uint32_t wakeupKeyCode = 0;
-              RFC_ParamData_t param;
-              bool pwrmgr2_enabled = false;
 
-              bool ret = Utils::getRFCConfig(RFC_PWRMGR2, param);
-
-              if (true == ret && param.type == WDMP_BOOLEAN && (strncasecmp(param.value,"true",4) == 0))
-              {
-                pwrmgr2_enabled = true;
-              }
-
-              IARM_Result_t res = IARM_Bus_Call((pwrmgr2_enabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
+              IARM_Result_t res = IARM_Bus_Call((m_PwrMgrDeepSleepEnabled)? IARM_BUS_PWRMGR_NAME : IARM_BUS_DEEPSLEEPMGR_NAME,
                          IARM_BUS_DEEPSLEEPMGR_API_GetLastWakeupKeyCode, (void *)&param,
                          sizeof(param));
               if (IARM_RESULT_SUCCESS == res)

@@ -138,6 +138,7 @@ namespace WPEFramework {
 		bool m_ManufacturerDataModelNameValid;
                 std::string m_MfgSerialNumber;
                 bool m_MfgSerialNumberValid;
+                bool m_PwrMgrDeepSleepEnabled;
 #endif
             public:
                 SystemServices();
