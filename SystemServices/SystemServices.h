@@ -124,6 +124,7 @@ namespace WPEFramework {
 
                 std::string m_powerStateBeforeReboot;
                 bool m_powerStateBeforeRebootValid;
+                bool m_PwrMgrDeepSleepEnabled;
 
                 static void startModeTimer(int duration);
                 static void stopModeTimer();
