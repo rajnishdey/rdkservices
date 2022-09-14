@@ -18,59 +18,28 @@
  */
 
 #include <gtest/gtest.h>
-#include "SystemServices.h"
-#include "IarmBusMock.h"
-#include "RfcApiMock.h"
-#include "WrapsMock.h"
-#include <fstream>
-using namespace WPEFramework;
-using namespace std;
 
-namespace {
-const string iarmName = _T("Thunder_Plugins");
-}
+#include "SystemServices.h"
+
+#include "RfcApiMock.h"
+
+#include <fstream>
+
+using namespace WPEFramework;
 
 class SystemInitializeTest: public::testing::Test
 {
 	protected:
-	    	IarmBusImplMock iarmBusImplMock;
 	    	RfcApiImplMock rfcApiImplMock;
-            	WrapsImplMock wrapsImplMock;
-	public:
+
 	SystemInitializeTest()
 	{
-		IarmBus::getInstance().impl = &iarmBusImplMock;
         	RfcApi::getInstance().impl = &rfcApiImplMock;
-        	Wraps::getInstance().impl = &wrapsImplMock;
-
-		ON_CALL(iarmBusImplMock, IARM_Bus_Call)
-        	.WillByDefault(
-                [](const char* ownerName, const char* methodName, void* arg, size_t argLen) {
-		EXPECT_TRUE(strcmp(methodName, "DaemonSysModeChange") == 0);
-                    return IARM_RESULT_SUCCESS;
-                });
-
-		ON_CALL(wrapsImplMock, system(::testing::_))
-        	.WillByDefault(::testing::Invoke(
-            	[&](const char* command) {
-                EXPECT_EQ(string(command), string(_T("rm -f /opt/warehouse_mode_active")));
-
-                return 0;
-            }));
-
-        	ON_CALL(rfcApiImplMock, getRFCParameter(::testing::_, ::testing::_, ::testing::_))
-        	.WillByDefault(::testing::Invoke(
-            	[](char *pcCallerID, const char* pcParameterName, RFC_ParamData_t* pstParamData) {
-                EXPECT_EQ(strcmp(pcParameterName, "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Power.PwrMgr2.Enable"), 0);
-                return WDMP_SUCCESS;
-        }));
 	}
 
-	~SystemInitializeTest()
+	virtual ~SystemInitializeTest()
 	{
-		IarmBus::getInstance().impl = nullptr;
         	RfcApi::getInstance().impl = nullptr;
-        	Wraps::getInstance().impl = nullptr;
 	}
 };
 
@@ -83,7 +52,6 @@ class SystemServicesTest : public::SystemInitializeTest
 	    Core::JSONRPC::Connection connection;
 	    string response;
  
-    public:
 	    SystemServicesTest()
 		    :SystemInitializeTest()
     		    ,systemplugin(Core::ProxyType<Plugin::SystemServices>::Create())
@@ -92,18 +60,8 @@ class SystemServicesTest : public::SystemInitializeTest
     		    ,connection(1,0)
     {
     }
-   
-    virtual void SetUp()
-    {
-    }
 
-    virtual void TearDown()
-    {
-    }
-
-    ~SystemServicesTest()
-    {
-    }
+    virtual ~SystemServicesTest() override = default;
 };
 
 TEST_F(SystemServicesTest, RegisterMethods)
@@ -226,19 +184,9 @@ TEST_F(SystemServicesTest, Timezone)
 TEST_F(SystemServicesTest, InvalidTerritory)
 {
 	EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setTerritory"), _T("{\"territory\":\"USA\",\"region\":\"U-NYC\"}"),response));
-	EXPECT_EQ(response,string(""));
-
 	EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setTerritory"), _T("{\"territory\":\"US@\",\"region\":\"US-NYC\"}"),response));
-    	EXPECT_EQ(response,string(""));
-
 	EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setTerritory"), _T("{\"territory\":\"USA\",\"region\":\"US-N$C\"}"),response));
-    	EXPECT_EQ(response,string(""));
-
 	EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setTerritory"), _T("{\"territory\":\"US12\",\"region\":\"US-NYC\"}"),response));
-    	EXPECT_EQ(response,string(""));
-    
-	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getTerritory"), _T("{}"),response));
-    	EXPECT_EQ(response,string("{\"territory\":\"\",\"region\":\"\",\"success\":true}"));
 }
 
 TEST_F(SystemServicesTest, ValidTerritory)
@@ -315,6 +263,10 @@ TEST_F(SystemServicesTest, Telemetry)
 
 TEST_F(SystemServicesTest, SystemVersions)
 {
+    ofstream file("/version.txt");
+    file << "imagename:PX051AEI_VBN_2203_sprint_20220331225312sdy_NG\nSDK_VERSION=17.3\nMEDIARITE=8.3.53\nYOCTO_VERSION=dunfell\nVERSION=000.36.0.0\nBUILD_TIME=\"2022-08-05 16:14:54\"\n";
+    file.close();
+
 	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSystemVersions"), _T("{}"),response));
     	EXPECT_EQ(response,string("{\"stbVersion\":\"PX051AEI_VBN_2203_sprint_20220331225312sdy_NG\",\"receiverVersion\":\"000.36.0.0\",\"stbTimestamp\":\"Fri 05 Aug 2022 16:14:54 AP UTC\",\"success\":true}"));
 }
