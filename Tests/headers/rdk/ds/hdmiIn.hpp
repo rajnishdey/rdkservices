@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector>
+
 
 namespace device {
 
@@ -53,41 +55,41 @@ public:
 
     std::string getEDIDBytesInfo(int8_t iPort, vector<uint8_t> edidVec2) const
     {
-        return impl->getEDIDBytesInfo(int8_t iPort, vector<uint8_t> edidVec2);
+        return impl->getEDIDBytesInfo(iPort,edidVec2);
     }
-    std::string getHDMISPDInfo(int8_t iPort, vector<uint8_t> edidVec2) const
+    std::string getHDMISPDInfo(iPort,edidVec2) const
     {
-        return impl->getHDMISPDInfo(int8_t iPort, vector<uint8_t> edidVec2);
+        return impl->getHDMISPDInfo(iPort, edidVec2);
     }
-    int8_t setEdidVersion(int8_t iPort, int8_t iEdidVer) const
+    int8_t setEdidVersion(iPort, iEdidVer) const
     {
-        return impl->setEdidVersion(int8_t iPort, int8_t iEdidVer);
+        return impl->setEdidVersion(iPort, iEdidVer);
     }
-    int8_t getEdidVersion(int8_t iPort, int8_t edidVersion) const
+    int8_t getEdidVersion(iPort, edidVersion) const
     {
-        return impl->getEdidVersion(int8_t iPort, int8_t edidVersion);
+        return impl->getEdidVersion(iPort, edidVersion);
     }
 
     int8_t selectPort(int8_t iPort) const
     {
-        return impl->selectPort(int8_t iPort);
+        return impl->selectPort(iPort);
     }
 
     int8_t scaleVideo(int8_t x, int8_t y, int8_t width, int8_t height) const
     {
-        return impl->scaleVideo(int8_t x, int8_t y, int8_t width, int8_t height);
+        return impl->scaleVideo(x, y, width, height);
     }
 
     
     std::string getSupportedGameFeatures(vector<string> supportedFeatures) const
     {
-        return impl->getSupportedGameFeatures(vector<string> supportedFeatures);
+        return impl->getSupportedGameFeatures(supportedFeatures);
     }
 
 
     bool getHdmiALLMStatus(int8_t iPort, bool allm) const
     {
-        return impl->getHdmiALLMStatus(int8_t iPort, bool allm);
+        return impl->getHdmiALLMStatus(iPort, allm);
     }
 };
 
