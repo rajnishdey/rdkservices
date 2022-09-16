@@ -11,17 +11,12 @@ public:
     MOCK_METHOD(uint8_t, getNumberOfInputs, (), (const, override));
     MOCK_METHOD(bool, isPortConnected, (int8_t Port), (const, override));
     MOCK_METHOD(std::string, getCurrentVideoMode, (), (const, override));
-
-    MOCK_METHOD(vector<uint8_t>, getEDIDBytesInfo, (int8_t iPort, vector<uint8_t> edidVec2), (const, override));
-    MOCK_METHOD(vector<uint8_t>, getHDMISPDInfo, (int8_t iPort, vector<uint8_t> edidVec2), (const, override));
-    MOCK_METHOD(int8_t, setEdidVersion, (int8_t iPort, int8_t iEdidVer), (const, override));
-    MOCK_METHOD(int8_t, getEdidVersion, (int8_t iPort, int8_t edidVersion), (const, override));
-
-    MOCK_METHOD(int8_t, selectPort, (int8_t iPort), (const, override));
-    MOCK_METHOD(int8_t, scaleVideo, (int8_t x, int8_t y, int8_t width, int8_t height), (const, override));
-
-    MOCK_METHOD(vector<string>, getSupportedGameFeatures, (vector<string> supportedFeatures), (const, override));
-
-    MOCK_METHOD(bool, getHdmiALLMStatus, (int8_t iPort, bool allm), (const, override));
-
+    MOCK_METHOD(void, selectPort, (int8_t Port), (const, override));
+    MOCK_METHOD(void, scaleVideo, (int32_t x, int32_t y, int32_t width, int32_t height), (const, override));
+    MOCK_METHOD(void, getEDIDBytesInfo, (int iHdmiPort, std::vector<uint8_t> &edid), (const, override));
+    MOCK_METHOD(void, getHDMISPDInfo, (int iHdmiPort, std::vector<uint8_t> &data), (const, override));
+    MOCK_METHOD(void, setEdidVersion, (int iHdmiPort, int iEdidVersion), (const, override));
+    MOCK_METHOD(void, getEdidVersion, (int iHdmiPort, int *iEdidVersion), (const, override));
+    MOCK_METHOD(void, getHdmiALLMStatus, (int iHdmiPort, bool *allmStatus), (const, override));
+    MOCK_METHOD(void, getSupportedGameFeatures, (std::vector<std::string> &featureList), (const, override));
 };
