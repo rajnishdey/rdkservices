@@ -77,7 +77,7 @@ protected:
 
 
 
-TEST_F(FrameRateTest, RegisteredMethods)
+TEST_F(HdmiInputTest, RegisteredMethods)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getHDMIInputDevices")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("writeEDID")));
