@@ -32,12 +32,12 @@ protected:
 
 class HdmiInputDsTest : public HdmiInputTest {
 protected:
-    HdmiInputImplMock hdmiInputImplMock;
+    HdmiInputImplMock HdmiInputImplMock;
 
     HdmiInputDsTest()
         : HdmiInputTest()
     {
-        device::HdmiInput::getInstance().impl = &hdmiInputImplMock;
+        device::HdmiInput::getInstance().impl = &HdmiInputImplMock;
     }
     virtual ~HdmiInputDsTest() override
     {
@@ -105,9 +105,9 @@ TEST_F(FrameRateTest, RegisteredMethods)
 TEST_F(HdmiInputTest, getHDMIInputDevices)
 {
 
-    ON_CALL(hdmiInputImplMock, getNumberOfInputs())
+    ON_CALL(HdmiInputImplMock, getNumberOfInputs())
         .WillByDefault(::testing::Return(1));
-    ON_CALL(hdmiInputImplMock, isPortConnected())
+    ON_CALL(HdmiInputImplMock, isPortConnected())
         .WillByDefault(::testing::Return(true));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHDMIInputDevices"), _T("{}"), response));
     EXPECT_EQ(response, string({"devices\":[{\"id\":0,\"locator\":\"hdmiin://localhost/deviceid/0\",\"connected\": true}], \"success\": true}}"));
@@ -122,24 +122,24 @@ TEST_F(HdmiInputTest, writeEDID)
 
 TEST_F(HdmiInputTest, readEDID)
 {
-    ON_CALL(hdmiInputImplMock, getEDIDBytesInfo())
-        .WillByDefault(::testing::Return({'t','e','s','t'}));
+    ON_CALL(HdmiInputImplMock, getEDIDBytesInfo())
+        .WillByDefault(::testing::Return({"t","e","s","t"}));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{}"), response));
     EXPECT_EQ(response, string({"{\"EDID\": \"test\",\"success\": true}"));
 }
 
 TEST_F(HdmiInputTest, getRawHDMISPD)
 {
-    ON_CALL(hdmiInputImplMock, getHDMISPDInfo())
-        .WillByDefault(::testing::Return({'t','e','s','t'}));
+    ON_CALL(HdmiInputImplMock, getHDMISPDInfo())
+        .WillByDefault(::testing::Return({"t","e","s","t"}));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getRawHDMISPD"), _T("{}"), response));
     EXPECT_EQ(response, string({"{\"HDMISPD\": \"test\",\"success\": true}"));
 }
 
 TEST_F(HdmiInputTest, getHDMISPD)
 {
-    ON_CALL(hdmiInputImplMock, getHDMISPDInfo())
-        .WillByDefault(::testing::Return({'pkttype': 0,'version': 1,'length': 2,'vendor_name': 'test_name', 'product_des': "test_product", 'source_info': 0}));
+    ON_CALL(HdmiInputImplMock, getHDMISPDInfo())
+        .WillByDefault(::testing::Return({"pkttype": 0,"version": 1,"length": 2,"vendor_name": "test_name", "product_des": "test_product", "source_info": 0}));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHDMISPD"), _T("{}"), response));
     EXPECT_EQ(response, string({"{\"HDMISPD\": \"Packet Type:0,Version:1,Length:2,vendor name:test_name,product des:test_product,source info:0\",\"success\": true}"));
 }
@@ -205,8 +205,8 @@ TEST_F(HdmiInputTest, setVideoRectangle)
 
 TEST_F(HdmiInputTest, getSupportedGameFeatures)
 {
-    ON_CALL(hdmiInputImplMock, getSupportedGameFeatures())
-        .WillByDefault(::testing::Return({'ALLM'}));
+    ON_CALL(HdmiInputImplMock, getSupportedGameFeatures())
+        .WillByDefault(::testing::Return({"ALLM"}));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\",\"success\": true}"), response));
     EXPECT_EQ(response, string({"{\"success\": true}")); 
 }
@@ -218,7 +218,7 @@ TEST_F(HdmiInputTest, getHdmiGameFeatureStatusEmpty)
 
 TEST_F(HdmiInputTest, getHdmiGameFeatureStatus)
 {
-    ON_CALL(hdmiInputImplMock, getSupportedGameFeatures())
+    ON_CALL(HdmiInputImplMock, getSupportedGameFeatures())
         .WillByDefault(::testing::Return(false));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string({"{\"success\": true}")); 
