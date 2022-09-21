@@ -11,3 +11,4 @@ typedef enum _DSMgr_EventId_t {
 typedef enum _dsHDRStandard_t {
     dsHDRSTANDARD_NONE = 0x0,
 } dsHDRStandard_t;
+
