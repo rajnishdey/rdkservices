@@ -192,6 +192,7 @@ jobs:
           -DPLUGIN_SYSTEMSERVICES=ON
           -DCMAKE_DISABLE_FIND_PACKAGE_RFC=ON
           -DRDK_SERVICES_TEST=ON
+          -DPLUGIN_HDMIINPUT=ON
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build rdkservices
