@@ -85,7 +85,7 @@ namespace WPEFramework
         {
             HdmiInput::_instance = this;
 
-            InitializeIARM();
+            //InitializeIARM();
 
             CreateHandler({2});
 
@@ -115,6 +115,14 @@ namespace WPEFramework
         HdmiInput::~HdmiInput()
         {
         }
+	    
+	const string HdmiInput::Initialize(PluginHost::IShell * /* service */)
+	{
+  	    HdmiInput::_instance = this;
+	    InitializeIARM();
+
+	    return (string());
+	}
 
         void setResponseArray(JsonObject& response, const char* key, const vector<string>& items)
         {
