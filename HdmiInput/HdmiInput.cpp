@@ -392,7 +392,7 @@ namespace WPEFramework
                 //convert to base64
                 uint16_t size = min(edidVec.size(), (size_t)numeric_limits<uint16_t>::max());
 
-                LOGWARN("HdmiInput::readEDID size:%lu edidVec.size:%lu", size, edidVec.size());
+                LOGWARN("HdmiInput::readEDID size:%u edidVec.size:%lu", size, edidVec.size());
 
                 if(edidVec.size() > (size_t)numeric_limits<uint16_t>::max()) {
                     LOGERR("Size too large to use ToString base64 wpe api");
@@ -837,7 +837,7 @@ namespace WPEFramework
                 //convert to base64
                 uint16_t size = min(spdVect.size(), (size_t)numeric_limits<uint16_t>::max());
 
-                LOGWARN("HdmiInput::getHDMISPD size:%lu spdVec.size:%lu", size, spdVect.size());
+                LOGWARN("HdmiInput::getHDMISPD size:%u spdVec.size:%lu", size, spdVect.size());
 
                 if(spdVect.size() > (size_t)numeric_limits<uint16_t>::max()) {
                     LOGERR("Size too large to use ToString base64 wpe api");
@@ -873,7 +873,7 @@ namespace WPEFramework
                 //convert to base64
                 uint16_t size = min(spdVect.size(), (size_t)numeric_limits<uint16_t>::max());
 
-                LOGWARN("HdmiInput::getHDMISPD size:%lu spdVec.size:%lu", size, spdVect.size());
+                LOGWARN("HdmiInput::getHDMISPD size:%u spdVec.size:%lu", size, spdVect.size());
 
                 if(spdVect.size() > (size_t)numeric_limits<uint16_t>::max()) {
                     LOGERR("Size too large to use ToString base64 wpe api");
