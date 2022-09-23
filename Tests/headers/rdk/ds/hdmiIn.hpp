@@ -14,12 +14,12 @@ public:
     virtual std::string getCurrentVideoMode() const = 0;
     virtual void selectPort (int8_t Port) const = 0;
     virtual void scaleVideo (int32_t x, int32_t y, int32_t width, int32_t height) const = 0;
-    virtual std::string  getEDIDBytesInfo (int iHdmiPort, std::vector<uint8_t> &edid) const = 0;
+    virtual std::vector<uint8_t>  getEDIDBytesInfo (int iHdmiPort, std::vector<uint8_t> &edid) const = 0;
     virtual std::vector<uint8_t>  getHDMISPDInfo (int iHdmiPort, std::vector<uint8_t> &data) const = 0;
     virtual void setEdidVersion (int iHdmiPort, int iEdidVersion) const = 0;
     virtual int getEdidVersion (int iHdmiPort, int *iEdidVersion) const = 0;
     virtual bool  getHdmiALLMStatus (int iHdmiPort, bool *allmStatus) const = 0;
-    virtual std::string  getSupportedGameFeatures (std::vector<std::string> &featureList) const = 0;
+    virtual std::vector<std::string>  getSupportedGameFeatures (std::vector<std::string> &featureList) const = 0;
 };
 
 class HdmiInput {
@@ -52,7 +52,7 @@ public:
     {
         return impl->scaleVideo (x, y, width, height);
     }
-    std::string  getEDIDBytesInfo (int iHdmiPort, std::vector<uint8_t> &edid) const
+    std::vector<uint8_t>  getEDIDBytesInfo (int iHdmiPort, std::vector<uint8_t> &edid) const
     {
         return impl->getEDIDBytesInfo(iHdmiPort, edid);
     }
@@ -72,7 +72,7 @@ public:
     {
         return impl->getHdmiALLMStatus(iHdmiPort, allmStatus);
     }
-    std::string  getSupportedGameFeatures (std::vector<std::string> &featureList) const
+    std::vector<std::string>  getSupportedGameFeatures (std::vector<std::string> &featureList) const
     {
         return impl->getSupportedGameFeatures(featureList);
     }

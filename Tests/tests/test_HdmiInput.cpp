@@ -81,10 +81,10 @@ TEST_F(HdmiInputTest, RegisteredMethods)
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getHDMIInputDevices")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("writeEDID")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("readEDID")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getRawHDMISPD")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getHDMISPD")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("setEdidVersion")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getEdidVersion")));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Exists(_T("getRawHDMISPD")));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Exists(_T("getHDMISPD")));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Exists(_T("setEdidVersion")));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Exists(_T("getEdidVersion")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("startHdmiInput")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("stopHdmiInput")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("setVideoRectangle")));
@@ -109,109 +109,109 @@ TEST_F(HdmiInputDsTest, getHDMIInputDevices)
     ON_CALL(hdmiInputImplMock, isPortConnected(::testing::_))
         .WillByDefault(::testing::Return(true));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHDMIInputDevices"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"devices\":[{\"id\":0,\"locator\":\"hdmiin://localhost/deviceid/0\",\"connected\": true}], \"success\": true}}"));
+    EXPECT_EQ(response, string("{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}],\"success\":true}"));
 }
 
 
 TEST_F(HdmiInputDsTest, writeEDID)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{\"deviceId\": 0, \"message\": \"message\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, readEDID)
 {
     ON_CALL(hdmiInputImplMock, getEDIDBytesInfo(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(string("unknown")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"EDID\": \"unknown\",\"success\": true}"));
+        .WillByDefault(::testing::Return(std::vector<uint8_t>({'u','n','k','n','o','w','n'})));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": 0}"), response));
+    EXPECT_EQ(response, string("{\"EDID\": \"unknown\",\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, getRawHDMISPD)
 {
     ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(std::vector<uint8_t>({'u','n','k','o','w','n'})));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
-    EXPECT_EQ(response, string("{\"HDMISPD\": \"unknown\",\"success\": true}"));
+        .WillByDefault(::testing::Return(std::vector<uint8_t>({'u','n','k','n','o','w','n'})));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
+    EXPECT_EQ(response, string("{\"HDMISPD\": \"unknown\",\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, getHDMISPD)
 {
     ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
         .WillByDefault(::testing::Return(std::vector<uint8_t>({'0','1','2','n', 'p', '0'})));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":0}"), response));
-    EXPECT_EQ(response, string("{\"HDMISPD\": \"Packet Type:0,Version:1,Length:2,vendor name:'n',product des:'p',source info:0\",\"success\": true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":0}"), response));
+    EXPECT_EQ(response, string("{\"HDMISPD\": \"Packet Type:0,Version:1,Length:2,vendor name:'n',product des:'p',source info:0\",\"success\":true}"));
 }
 
 
 TEST_F(HdmiInputDsTest, setEdidVersionEmpty)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setEdidVersion"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": false}"));
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, setEdidVersion)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"HDMI1.4\"}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"HDMI1.4\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, getEdidVersionEmpty)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getEdidVersion"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": false}"));
+    EXPECT_EQ(response, string(""));
 }
 TEST_F(HdmiInputDsTest, getEdidVersion)
 {
     ON_CALL(hdmiInputImplMock, getEdidVersion(::testing::_,::testing::_))
         .WillByDefault(::testing::Return(1));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
-    EXPECT_EQ(response, string("{\"edidVersion\": \"HDMI2.0\", \"success\": true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
+    EXPECT_EQ(response, string("{\"edidVersion\": \"HDMI2.0\", \"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, startHdmiInputEmpty)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, startHdmiInput)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"0\"}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}")); 
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 
 TEST_F(HdmiInputDsTest, stopHdmiInput)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("stopHdmiInput"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}")); 
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 TEST_F(HdmiInputDsTest, setVideoRectangleEmpty)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setVideoRectangle"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, setVideoRectangle)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": 0,\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}")); 
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 TEST_F(HdmiInputDsTest, getSupportedGameFeatures)
 {
     ON_CALL(hdmiInputImplMock, getSupportedGameFeatures(::testing::_))
-        .WillByDefault(::testing::Return(string("{\"ALLM\"}")));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\",\"success\": true}"), response));
-    EXPECT_EQ(response, string("{\"success\": true}")); 
+        .WillByDefault(::testing::Return(std::vector<std::string>({"ALLM"})));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusEmpty)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{}"), response));
-    EXPECT_EQ(response, string("{\"success\": false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
@@ -219,5 +219,5 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
     ON_CALL(hdmiInputImplMock, getHdmiALLMStatus(::testing::_,::testing::_))
         .WillByDefault(::testing::Return(true));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiALLMStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"ALLM\"}"), response));
-    EXPECT_EQ(response, string("{\"mode\": true, \"success\": true}")); 
+    EXPECT_EQ(response, string("{\"mode\":true, \"success\":true}")); 
 }
