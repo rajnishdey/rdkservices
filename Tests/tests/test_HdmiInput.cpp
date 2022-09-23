@@ -122,15 +122,21 @@ TEST_F(HdmiInputDsTest, writeEDID)
 TEST_F(HdmiInputDsTest, readEDID)
 {
     ON_CALL(hdmiInputImplMock, getEDIDBytesInfo(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(std::vector<uint8_t>({'u','n','k','n','o','w','n'})));
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t>& edidVec2) {
+                edidVec2 = { 't', 'e', 's', 't' };
+            }));        
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": 0}"), response));
-    EXPECT_EQ(response, string("{\"EDID\": \"unknown\",\"success\":true}"));
+    EXPECT_EQ(response, string("{\"EDID\": \"test\",\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, getRawHDMISPD)
 {
     ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(std::vector<uint8_t>({'u','n','k','n','o','w','n'})));
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t>& edidVec2) {
+                edidVec2 = { 't', 'e', 's', 't' };
+            }));   
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
     EXPECT_EQ(response, string("{\"HDMISPD\": \"unknown\",\"success\":true}"));
 }
@@ -138,7 +144,10 @@ TEST_F(HdmiInputDsTest, getRawHDMISPD)
 TEST_F(HdmiInputDsTest, getHDMISPD)
 {
     ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(std::vector<uint8_t>({'0','1','2','n', 'p', '0'})));
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t>& edidVec2) {
+                edidVec2 = {'0','1','2','n', 'p', '0'};
+            })); 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":0}"), response));
     EXPECT_EQ(response, string("{\"HDMISPD\": \"Packet Type:0,Version:1,Length:2,vendor name:'n',product des:'p',source info:0\",\"success\":true}"));
 }
@@ -203,7 +212,10 @@ TEST_F(HdmiInputDsTest, setVideoRectangle)
 TEST_F(HdmiInputDsTest, getSupportedGameFeatures)
 {
     ON_CALL(hdmiInputImplMock, getSupportedGameFeatures(::testing::_))
-        .WillByDefault(::testing::Return(std::vector<std::string>({"ALLM"})));
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<string>& supportedFeatures) {
+                supportedFeatures = {"ALLM"};
+            })); 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"success\":true}")); 
 }
