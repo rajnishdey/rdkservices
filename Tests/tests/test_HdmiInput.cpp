@@ -177,22 +177,23 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer14)
     ON_CALL(hdmiInputImplMock, getEdidVersion(::testing::_,::testing::_))
         .WillByDefault(::testing::Invoke(
             [&](int iPort, int &edidVersion) {
-		iport = 0;
-                edidVersion = HDMI_EDID_VER_14;
+		iPort = 0;
+                edidVersion = 0;
             })); 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
-    EXPECT_EQ(response, string("{\"edidVersion\": \"HDMI1.4\", \"success\":true}"));
+    EXPECT_EQ(response, string("{\"edidVersion\":\"HDMI1.4\",\"success\":true}"
+));
 }
 TEST_F(HdmiInputDsTest, getEdidVersionVer20)
 {
     ON_CALL(hdmiInputImplMock, getEdidVersion(::testing::_,::testing::_))
         .WillByDefault(::testing::Invoke(
             [&](int iPort, int &edidVersion) {
-		iport = 0;
-                edidVersion = HDMI_EDID_VER_20;
+		iPort = 0;
+                edidVersion = 1;
             })); 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
-    EXPECT_EQ(response, string("{\"edidVersion\": \"HDMI2.0\", \"success\":true}"));
+    EXPECT_EQ(response, string("{\"edidVersion\":\"HDMI2.0\",\"success\":true}"));
 }
 
 TEST_F(HdmiInputDsTest, startHdmiInputEmpty)
