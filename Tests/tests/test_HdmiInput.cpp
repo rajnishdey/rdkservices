@@ -248,7 +248,10 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusEmpty)
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
 {
     ON_CALL(hdmiInputImplMock, getHdmiALLMStatus(::testing::_,::testing::_))
-        .WillByDefault(::testing::Return(true));
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, bool allm) {
+                allm = true;
+            }));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiALLMStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"mode\":true, \"success\":true}")); 
 }
