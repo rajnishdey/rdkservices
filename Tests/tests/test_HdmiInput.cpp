@@ -124,7 +124,6 @@ TEST_F(HdmiInputDsTest, readEDID)
     ON_CALL(hdmiInputImplMock, getEDIDBytesInfo(::testing::_,::testing::_))
         .WillByDefault(::testing::Invoke(
             [&](int iport, std::vector<uint8_t> &edidVec2) {
-		iport = 0;
                 edidVec2 = std::vector<uint8_t>({ 't', 'e', 's', 't' });
             }));        
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": 0}"), response));
@@ -177,7 +176,6 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer14)
     ON_CALL(hdmiInputImplMock, getEdidVersion(::testing::_,::testing::_))
         .WillByDefault(::testing::Invoke(
             [&](int iPort, int *edidVersion) {
-		
                 *edidVersion = 0;
             })); 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
@@ -188,7 +186,6 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer20)
     ON_CALL(hdmiInputImplMock, getEdidVersion(::testing::_,::testing::_))
         .WillByDefault(::testing::Invoke(
             [&](int iPort, int *edidVersion) {
-		
                 *edidVersion = 1;
             })); 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"0\"}"), response));
@@ -254,3 +251,4 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"mode\":true,\"success\":true}")); 
 }
+
