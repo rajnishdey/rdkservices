@@ -17,8 +17,8 @@ public:
     virtual void  getEDIDBytesInfo (int iHdmiPort, std::vector<uint8_t>& edid) const = 0;
     virtual void  getHDMISPDInfo (int iHdmiPort, std::vector<uint8_t> &data) const = 0;
     virtual void setEdidVersion (int iHdmiPort, int iEdidVersion) const = 0;
-    virtual void getEdidVersion (int iHdmiPort, int &iEdidVersion) const = 0;
-    virtual void  getHdmiALLMStatus (int iHdmiPort, bool &allmStatus) const = 0;
+    virtual void getEdidVersion (int iHdmiPort, int *iEdidVersion) const = 0;
+    virtual void  getHdmiALLMStatus (int iHdmiPort, bool *allmStatus) const = 0;
     virtual void  getSupportedGameFeatures (std::vector<std::string> &featureList) const = 0;
 };
 
@@ -64,11 +64,11 @@ public:
     {
         return impl->setEdidVersion(iHdmiPort, iEdidVersion);
     }
-    void getEdidVersion (int iHdmiPort, int &iEdidVersion) const
+    void getEdidVersion (int iHdmiPort, int *iEdidVersion) const
     {
         return impl->getEdidVersion(iHdmiPort,iEdidVersion);
     }
-    void  getHdmiALLMStatus (int iHdmiPort, bool &allmStatus) const
+    void  getHdmiALLMStatus (int iHdmiPort, bool *allmStatus) const
     {
         return impl->getHdmiALLMStatus(iHdmiPort, allmStatus);
     }
