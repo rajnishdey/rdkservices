@@ -252,3 +252,35 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
     EXPECT_EQ(response, string("{\"mode\":true,\"success\":true}")); 
 }
 
+TEST_F(HdmiInputInitializedTest, onDevicesChanged)
+{
+   ASSERT_TRUE(dsHdmiEventHandler != nullptr);
+    ON_CALL(hdmiInputImplMock, getNumberOfInputs())
+        .WillByDefault(::testing::Return(1));
+    ON_CALL(hdmiInputImplMock, isPortConnected(::testing::_))
+        .WillByDefault(::testing::Return(true));
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{"
+                                          "\"jsonrpc\":\"2.0\","
+                                          "\"method\":\"client.events.onDevicesChanged\","
+                                          "\"params": {\"devices\": 
+                                              [{\"id\": 0,
+                                              \"locator\": \"hdmiin://localhost/deviceid/0\",
+                                              \"connected\": true}]}\"}
+                                              ")));
+
+                return Core::ERROR_NONE;
+            }));
+
+    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.onDevicesChanged"), message);
+
+    dsHdmiEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, nullptr, 0);
+
+    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onDevicesChanged"), message); 
+}
+
