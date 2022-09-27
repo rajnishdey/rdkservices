@@ -49,6 +49,7 @@ class HdmiInputInitializedTest : public HdmiInputTest {
 protected:
     IarmBusImplMock iarmBusImplMock;
     IARM_EventHandler_t dsHdmiEventHandler;
+    IARM_EventHandler_t dsHdmiStatusEventHandler;
 
     HdmiInputInitializedTest()
         : HdmiInputTest()
@@ -61,6 +62,7 @@ protected:
                     if ((string(IARM_BUS_DSMGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG)) {
                         EXPECT_TRUE(handler != nullptr);
                         dsHdmiEventHandler = handler;
+                        dsHdmiStatusEventHandler = handler;
                     }
                     return IARM_RESULT_SUCCESS;
                 }));
@@ -325,5 +327,29 @@ TEST_F(HdmiInputInitializedEventDsTest, onDevicesChanged)
 
     handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onDevicesChanged"), message); 
 }
+TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
+{
+   ASSERT_TRUE(dsHdmiStatusEventHandler != nullptr);
 
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onDevicesChanged.onDevicesChanged\",\"params\":{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}]}}")));
+
+                return Core::ERROR_NONE;
+            }));
+
+
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_status.isPresented = true;	
+    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.onInputStatusChanged"), message);
+
+    dsHdmiStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, &eventData , 0);
+
+    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onInputStatusChanged"), message); 
+}
 
