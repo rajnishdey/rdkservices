@@ -352,11 +352,11 @@ TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_status.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_status.isPresented = true;	
-    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.onInputStatusChanged"), message);
+    handler.Subscribe(0, _T("onInputStatusChange"), _T("client.events.onInputStatusChanged"), message);
 
     dsHdmiStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, &eventData , 0);
 
-    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onInputStatusChanged"), message); 
+    handler.Unsubscribe(0, _T("onInputStatusChange"), _T("client.events.onInputStatusChanged"), message); 
 }
 TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
 {
@@ -377,11 +377,11 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_sig_status.status = dsHDMI_IN_SIGNAL_STATUS_STABLE;	
-    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.onSignalChanged"), message);
+    handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
 
     dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, &eventData , 0);
 
-    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onSignalChanged"), message); 
+    handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
 }
 
 TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
@@ -405,11 +405,11 @@ TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
     eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_1920x1080;	
     eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
     eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_59dot94;	
-    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.videoStreamInfoUpdate"), message);
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
 
     dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, &eventData , 0);
 
-    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.videoStreamInfoUpdate"), message); 
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
 }
 
 TEST_F(HdmiInputInitializedEventDsTest, hdmiGameFeatureStatusUpdate)
@@ -431,9 +431,9 @@ TEST_F(HdmiInputInitializedEventDsTest, hdmiGameFeatureStatusUpdate)
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_allm_mode.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_allm_mode.allm_mode = true;	
-    handler.Subscribe(0, _T("onDevicesChanged"), _T("client.events.hdmiGameFeatureStatusUpdate"), message);
+    handler.Subscribe(0, _T("hdmiGameFeatureStatusUpdate"), _T("client.events.hdmiGameFeatureStatusUpdate"), message);
 
     dsHdmiGameFeatureStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_HOTPLUG, &eventData , 0);
 
-    handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.hdmiGameFeatureStatusUpdate"), message); 
+    handler.Unsubscribe(0, _T("hdmiGameFeatureStatusUpdate"), _T("client.events.hdmiGameFeatureStatusUpdate"), message); 
 }
