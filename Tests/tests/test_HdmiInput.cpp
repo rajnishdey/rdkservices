@@ -256,9 +256,9 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer20)
     EXPECT_EQ(response, string("{\"edidVersion\":\"HDMI2.0\",\"success\":true}"));
 }
 
-TEST_F(HdmiInputDsTest, startHdmiInputEmpty)
+TEST_F(HdmiInputDsTest, startHdmiInputInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\: \"b\"}"), response));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"b\"}"), response));
     EXPECT_EQ(response, string(""));
 }
 
