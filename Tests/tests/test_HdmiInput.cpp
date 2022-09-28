@@ -274,8 +274,8 @@ TEST_F(HdmiInputDsTest, setEdidVersion20)
 }
 TEST_F(HdmiInputDsTest, setEdidVersionEmpty)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"\"}"), response));
-    EXPECT_EQ(response, string("{\"success\":false}"));
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"\"}"), response));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, getEdidVersionInvalid)
@@ -346,16 +346,7 @@ TEST_F(HdmiInputDsTest, getSupportedGameFeatures)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"supportedGameFeatures\":[\"ALLM\"],\"success\":true}")); 
 }
-TEST_F(HdmiInputDsTest, getSupportedGameFeaturesIncorrect)
-{
-    ON_CALL(hdmiInputImplMock, getSupportedGameFeatures(::testing::_))
-        .WillByDefault(::testing::Invoke(
-            [&](std::vector<std::string> &supportedFeatures) {
-                supportedFeatures = {"ALLM"};
-            })); 
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"Invalid\"}"), response));
-    EXPECT_EQ(response, string("")); 
-}
+
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalid)
 {
@@ -377,6 +368,16 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
             }));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"mode\":true,\"success\":true}")); 
+}
+TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalid)
+{
+    ON_CALL(hdmiInputImplMock, getHdmiALLMStatus(::testing::_,::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, bool *allm) {
+                *allm = true;
+            }));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"Invalid\"}"), response));
+    EXPECT_EQ(response, string("")); 
 }
 
 TEST_F(HdmiInputInitializedEventDsTest, onDevicesChanged)
