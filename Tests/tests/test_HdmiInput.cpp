@@ -177,10 +177,28 @@ TEST_F(HdmiInputDsTest, getHDMIInputDevices)
 }
 
 
+TEST_F(HdmiInputDsTest, writeEDIDEmpty)
+{
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{\"message\": \"message\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":false}"));
+}
+}
+
 TEST_F(HdmiInputDsTest, writeEDID)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{\"deviceId\": 0, \"message\": \"message\"}"), response));
     EXPECT_EQ(response, string("{\"success\":true}"));
+}
+
+TEST_F(HdmiInputDsTest, writeEDIDInvalid)
+{
+      ON_CALL(hdmiInputImplMock, getEDIDBytesInfo(::testing::_,::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t> &edidVec2) {
+                edidVec2 = std::vector<uint8_t>({ 't', 'e', 's', 't' });
+            }));        
+   EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": \"b\"}"), response));
+   EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 
 TEST_F(HdmiInputDsTest, readEDID)
@@ -204,6 +222,16 @@ TEST_F(HdmiInputDsTest, getRawHDMISPD)
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
     EXPECT_EQ(response, string("{\"HDMISPD\":\"dGVzdA\",\"success\":true}"));
 }
+TEST_F(HdmiInputDsTest, getRawHDMISPDInvalid)
+{
+    ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t>& edidVec2) {
+                edidVec2 = { 't', 'e', 's', 't' };
+            }));   
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+}
 
 TEST_F(HdmiInputDsTest, getHDMISPD)
 {
@@ -212,16 +240,25 @@ TEST_F(HdmiInputDsTest, getHDMISPD)
             [&](int iport, std::vector<uint8_t>& edidVec2) {
                 edidVec2 = {'0','1','2','n', 'p', '0'};
             })); 
-    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":0}"), response));
-    EXPECT_EQ(response, string("{\"HDMISPD\":\"Packet Type:30,Version:49,Length:50,vendor name:0n,product des:,source info:00\",\"success\":true}"
-));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\"b\"}"), response));
+    EXPECT_EQ(response, string("{\"HDMISPD\":\"Packet Type:30,Version:49,Length:50,vendor name:0n,product des:,source info:00\",\"success\":true}"));
+}
+TEST_F(HdmiInputDsTest, getHDMISPDInvalid)
+{
+    ON_CALL(hdmiInputImplMock, getHDMISPDInfo(::testing::_,::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, std::vector<uint8_t>& edidVec2) {
+                edidVec2 = {'0','1','2','n', 'p', '0'};
+            })); 
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\"b\"}"), response));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 
 
-TEST_F(HdmiInputDsTest, setEdidVersionEmpty)
+TEST_F(HdmiInputDsTest, setEdidVersionInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{}"), response));
-    EXPECT_EQ(response, string(""));
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"b\", \"edidVersion\":\"HDMI1.4\"}"), response));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"))
 }
 
 TEST_F(HdmiInputDsTest, setEdidVersion)
@@ -230,10 +267,10 @@ TEST_F(HdmiInputDsTest, setEdidVersion)
     EXPECT_EQ(response, string("{\"success\":true}"));
 }
 
-TEST_F(HdmiInputDsTest, getEdidVersionEmpty)
+TEST_F(HdmiInputDsTest, getEdidVersionInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{}"), response));
-    EXPECT_EQ(response, string(""));
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"b\", \"edidVersion\":\"HDMI1.4\"}"), response));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 TEST_F(HdmiInputDsTest, getEdidVersionVer14)
 {
@@ -259,7 +296,7 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer20)
 TEST_F(HdmiInputDsTest, startHdmiInputInvalid)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"b\"}"), response));
-    EXPECT_EQ(response, string(""));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 
 TEST_F(HdmiInputDsTest, startHdmiInput)
@@ -275,16 +312,16 @@ TEST_F(HdmiInputDsTest, stopHdmiInput)
     EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
-TEST_F(HdmiInputDsTest, setVideoRectangleEmpty)
+TEST_F(HdmiInputDsTest, setVideoRectangleInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setVideoRectangle"), _T("{}"), response));
-    EXPECT_EQ(response, string(""));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": b,\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 TEST_F(HdmiInputDsTest, setVideoRectangle)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": 0,\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
-    EXPECT_EQ(response, string("{\"success\":true}")); 
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}")); 
 }
 
 
@@ -299,10 +336,15 @@ TEST_F(HdmiInputDsTest, getSupportedGameFeatures)
     EXPECT_EQ(response, string("{\"supportedGameFeatures\":[\"ALLM\"],\"success\":true}")); 
 }
 
-TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusEmpty)
+TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{}"), response));
-    EXPECT_EQ(response, string(""));
+    ON_CALL(hdmiInputImplMock, getHdmiALLMStatus(::testing::_,::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](int iport, bool *allm) {
+                *allm = true;
+            }));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"b\",\"gameFeature\": \"ALLM\"}"), response));
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
@@ -642,6 +684,27 @@ TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate8)
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_4096x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_29dot97;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate8)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":1280,\"height\":720,\"progressive\":false,\"frameRateN\":30000,\"frameRateD\":1001}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_1280x720;	
     eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
     eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_29dot97;	
     handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
