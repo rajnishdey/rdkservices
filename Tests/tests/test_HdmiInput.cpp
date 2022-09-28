@@ -258,7 +258,7 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer20)
 
 TEST_F(HdmiInputDsTest, startHdmiInputInvalid)
 {
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"b\"}"), response));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"1.2\"}"), response));
     EXPECT_EQ(response, string(""));
 }
 
