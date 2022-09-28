@@ -177,7 +177,7 @@ namespace WPEFramework
             int portId = 0;
             try {
                 portId = stoi(sPortId);
-            }catch (const std::exception &e) {
+            }catch (const std::exception &err) {
                 LOG_DEVICE_EXCEPTION1(sPortId);
                 returnResponse(false);
             }
