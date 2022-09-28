@@ -346,10 +346,9 @@ TEST_F(HdmiInputInitializedEventDsTest, onDevicesChanged)
     handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onDevicesChanged"), message); 
 }
 
-TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
+TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChangeOn)
 {
    ASSERT_TRUE(dsHdmiStatusEventHandler != nullptr);
-
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
@@ -357,24 +356,37 @@ TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
                 string text;
                 EXPECT_TRUE(json->ToString(text));
                 EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onInputStatusChanged.onInputStatusChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"status\":\"started\"}}")));
-
                 return Core::ERROR_NONE;
             }));
-
-
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_status.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_status.isPresented = true;	
     handler.Subscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message);
-
     dsHdmiStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_STATUS, &eventData , 0);
-
     handler.Unsubscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message); 
 }
-TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
+TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChangeOff)
+{
+   ASSERT_TRUE(dsHdmiStatusEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onInputStatusChanged.onInputStatusChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"status\":\"stopped\"}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_status.isPresented = false;	
+    handler.Subscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message);
+    dsHdmiStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_STATUS, &eventData , 0);
+    handler.Unsubscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedStable)
 {
    ASSERT_TRUE(dsHdmiSignalStatusEventHandler != nullptr);
-
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
@@ -382,25 +394,95 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
                 string text;
                 EXPECT_TRUE(json->ToString(text));
                 EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"stableSignal\"}}")));
-
                 return Core::ERROR_NONE;
             }));
-
-
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_sig_status.status = dsHDMI_IN_SIGNAL_STATUS_STABLE;	
     handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
-
     dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_SIGNAL_STATUS, &eventData , 0);
-
+    handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedNoSignal)
+{
+   ASSERT_TRUE(dsHdmiSignalStatusEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"noSignal\"}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_sig_status.status = dsHDMI_IN_SIGNAL_STATUS_NOSIGNAL;	
+    handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
+    dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_SIGNAL_STATUS, &eventData , 0);
+    handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedUnstable)
+{
+   ASSERT_TRUE(dsHdmiSignalStatusEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"unstableSignal\"}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_sig_status.status = dsHDMI_IN_SIGNAL_STATUS_UNSTABLE;	
+    handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
+    dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_SIGNAL_STATUS, &eventData , 0);
+    handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedNotSupported)
+{
+   ASSERT_TRUE(dsHdmiSignalStatusEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"notSupportedSignal\"}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_sig_status.status = dsHDMI_IN_SIGNAL_STATUS_NOTSUPPORTED;	
+    handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
+    dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_SIGNAL_STATUS, &eventData , 0);
+    handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedDefault)
+{
+   ASSERT_TRUE(dsHdmiSignalStatusEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"none\"}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_sig_status.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_sig_status.status = null;	
+    handler.Subscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message);
+    dsHdmiSignalStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_SIGNAL_STATUS, &eventData , 0);
     handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
 }
 
-TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
+/*TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
 {
    ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
-
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
@@ -411,17 +493,38 @@ TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
 
                 return Core::ERROR_NONE;
             }));
-
-
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_1920x1080;	
     eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
     eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_59dot94;	
     handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
-
     dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}*/
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
+{
+   testVideoStream(dsVIDEO_PIXELRES_1920x1080,dsVIDEO_FRAMERATE_59dot94, 1920, 1080, 60000, 1001);
+}
+void testVideoStream(dsVideoResolution_t resolution,dsVideoFrameRate_t framerate, int width, int height, int framerateN, int framerateD){
+    ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":%n,\"height\":%n,\"progressive\":false,\"frameRateN\":%n,\"frameRateD\":%n}}", width, height,framerateN, framerateD)));
 
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = resolution;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = framerate;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
     handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
 }
 
