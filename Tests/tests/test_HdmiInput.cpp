@@ -376,7 +376,7 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalidFeature)
             [&](int iport, bool *allm) {
                 *allm = true;
             }));
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"Invalid\"}"), response));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"0\",\"gameFeature\": \"Invalid\"}"), response));
     EXPECT_EQ(response, string("")); 
 }
 
