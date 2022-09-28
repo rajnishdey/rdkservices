@@ -345,6 +345,7 @@ TEST_F(HdmiInputInitializedEventDsTest, onDevicesChanged)
 
     handler.Unsubscribe(0, _T("onDevicesChanged"), _T("client.events.onDevicesChanged"), message); 
 }
+
 TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
 {
    ASSERT_TRUE(dsHdmiStatusEventHandler != nullptr);
@@ -355,7 +356,7 @@ TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onDevicesChanged.onDevicesChanged\",\"params\":{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}]}}")));
+                EXPECT_EQ(text, string(_T("")));
 
                 return Core::ERROR_NONE;
             }));
@@ -380,7 +381,7 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onDevicesChanged.onDevicesChanged\",\"params\":{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}]}}")));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onSignalChanged.onSignalChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"signalStatus\":\"stableSignal\"}}")));
 
                 return Core::ERROR_NONE;
             }));
@@ -406,7 +407,7 @@ TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onDevicesChanged.onDevicesChanged\",\"params\":{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}]}}")));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":1920,\"height\":1080,\"progressive\":false,\"frameRateN\":60000,\"frameRateD\":1001}}")));
 
                 return Core::ERROR_NONE;
             }));
@@ -434,7 +435,7 @@ TEST_F(HdmiInputInitializedEventDsTest, hdmiGameFeatureStatusUpdate)
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onDevicesChanged.onDevicesChanged\",\"params\":{\"devices\":[{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"connected\":\"true\"}]}}")));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.hdmiGameFeatureStatusUpdate.hdmiGameFeatureStatusUpdate\",\"params\":{\"id\":0,\"gameFeature\":\"ALLM\",\"mode\":true}}")));
 
                 return Core::ERROR_NONE;
             }));
