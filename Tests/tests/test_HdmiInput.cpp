@@ -229,8 +229,8 @@ TEST_F(HdmiInputDsTest, getRawHDMISPDInvalid)
             [&](int iport, std::vector<uint8_t>& edidVec2) {
                 edidVec2 = { 't', 'e', 's', 't' };
             }));   
-    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":0}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getRawHDMISPD"), _T("{\"portId\":\"b\"}"), response));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, getHDMISPD)
@@ -240,7 +240,7 @@ TEST_F(HdmiInputDsTest, getHDMISPD)
             [&](int iport, std::vector<uint8_t>& edidVec2) {
                 edidVec2 = {'0','1','2','n', 'p', '0'};
             })); 
-    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\"b\"}"), response));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\0}"), response));
     EXPECT_EQ(response, string("{\"HDMISPD\":\"Packet Type:30,Version:49,Length:50,vendor name:0n,product des:,source info:00\",\"success\":true}"));
 }
 TEST_F(HdmiInputDsTest, getHDMISPDInvalid)
@@ -251,14 +251,14 @@ TEST_F(HdmiInputDsTest, getHDMISPDInvalid)
                 edidVec2 = {'0','1','2','n', 'p', '0'};
             })); 
     EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\"b\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 
 TEST_F(HdmiInputDsTest, setEdidVersionInvalid)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"b\", \"edidVersion\":\"HDMI1.4\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, setEdidVersion)
@@ -270,7 +270,7 @@ TEST_F(HdmiInputDsTest, setEdidVersion)
 TEST_F(HdmiInputDsTest, getEdidVersionInvalid)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("getEdidVersion"), _T("{\"portId\": \"b\", \"edidVersion\":\"HDMI1.4\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(response, string(""));
 }
 TEST_F(HdmiInputDsTest, getEdidVersionVer14)
 {
@@ -296,7 +296,7 @@ TEST_F(HdmiInputDsTest, getEdidVersionVer20)
 TEST_F(HdmiInputDsTest, startHdmiInputInvalid)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("startHdmiInput"), _T("{\"portId\": \"b\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, startHdmiInput)
@@ -314,14 +314,14 @@ TEST_F(HdmiInputDsTest, stopHdmiInput)
 
 TEST_F(HdmiInputDsTest, setVideoRectangleInvalid)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": b,\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
-    EXPECT_EQ(response, string("{\"success\":true}")); 
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": \"b\",\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
+    EXPECT_EQ(response, string("")); 
 }
 
 TEST_F(HdmiInputDsTest, setVideoRectangle)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": 0,\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}")); 
+    EXPECT_EQ(response, string("{\"success\":true}")); 
 }
 
 
@@ -344,7 +344,7 @@ TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalid)
                 *allm = true;
             }));
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getHdmiGameFeatureStatus"), _T("{\"portId\": \"b\",\"gameFeature\": \"ALLM\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+    EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatus)
