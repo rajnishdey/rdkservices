@@ -198,7 +198,7 @@ TEST_F(HdmiInputDsTest, writeEDIDInvalid)
                 edidVec2 = std::vector<uint8_t>({ 't', 'e', 's', 't' });
             }));        
    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": \"b\"}"), response));
-   EXPECT_EQ(response, string("}"));
+   EXPECT_EQ(response, string(""));
 }
 
 TEST_F(HdmiInputDsTest, readEDID)
@@ -314,7 +314,7 @@ TEST_F(HdmiInputDsTest, stopHdmiInput)
 
 TEST_F(HdmiInputDsTest, setVideoRectangleInvalid)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": \"b\",\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"x\": \"b\",\"y\": 0,\"w\": 1920,\"h\": 1080}"), response));
     EXPECT_EQ(response, string("")); 
 }
 
