@@ -331,9 +331,10 @@ namespace WPEFramework
             int portId = 0;
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
             string edid = readEDID (portId);
@@ -738,9 +739,10 @@ namespace WPEFramework
             returnIfParamNotFound(parameters, "gameFeature");
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
 	    if (strcmp (sGameFeature.c_str(), "ALLM") == 0)
@@ -783,9 +785,10 @@ namespace WPEFramework
             int portId = 0;
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
             string spdInfo = getRawHDMISPD (portId);
@@ -807,9 +810,10 @@ namespace WPEFramework
             int portId = 0;
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
             string spdInfo = getHDMISPD (portId);
@@ -912,9 +916,10 @@ namespace WPEFramework
             string sVersion = parameters["edidVersion"].String();
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
             int edidVer = -1;
@@ -962,9 +967,10 @@ namespace WPEFramework
             returnIfParamNotFound(parameters, "portId");
             try {
                 portId = stoi(sPortId);
-            }catch (const device::Exception& err) {
-                LOG_DEVICE_EXCEPTION1(sPortId);
-                returnResponse(false);
+            }catch (...) {
+		    LOGWARN("Invalid Arguments");
+		    response["message"] = "Invalid Arguments";
+		    returnResponse(false);
             }
 
             int edidVer = getEdidVersion (portId);
