@@ -690,7 +690,7 @@ TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate8)
     dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
     handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
 }
-TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate8)
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate9)
 {
    ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
