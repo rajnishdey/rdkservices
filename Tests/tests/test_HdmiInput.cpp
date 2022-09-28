@@ -182,7 +182,7 @@ TEST_F(HdmiInputDsTest, writeEDIDEmpty)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{\"message\": \"message\"}"), response));
     EXPECT_EQ(response, string("{\"success\":false}"));
 }
-}
+
 
 TEST_F(HdmiInputDsTest, writeEDID)
 {
@@ -258,7 +258,7 @@ TEST_F(HdmiInputDsTest, getHDMISPDInvalid)
 TEST_F(HdmiInputDsTest, setEdidVersionInvalid)
 {
     EXPECT_EQ(Core::ERROR_GENERAL, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"b\", \"edidVersion\":\"HDMI1.4\"}"), response));
-    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"))
+    EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
 }
 
 TEST_F(HdmiInputDsTest, setEdidVersion)
