@@ -356,7 +356,7 @@ TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("")));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.onInputStatusChanged.onInputStatusChanged\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"status\":\"started\"}}")));
 
                 return Core::ERROR_NONE;
             }));
@@ -365,11 +365,11 @@ TEST_F(HdmiInputInitializedEventDsTest, onInputStatusChange)
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_status.port =dsHDMI_IN_PORT_0;
     eventData.data.hdmi_in_status.isPresented = true;	
-    handler.Subscribe(0, _T("onInputStatusChange"), _T("client.events.onInputStatusChanged"), message);
+    handler.Subscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message);
 
     dsHdmiStatusEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_STATUS, &eventData , 0);
 
-    handler.Unsubscribe(0, _T("onInputStatusChange"), _T("client.events.onInputStatusChanged"), message); 
+    handler.Unsubscribe(0, _T("onInputStatusChanged"), _T("client.events.onInputStatusChanged"), message); 
 }
 TEST_F(HdmiInputInitializedEventDsTest, onSignalChanged)
 {
