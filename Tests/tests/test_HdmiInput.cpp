@@ -179,8 +179,8 @@ TEST_F(HdmiInputDsTest, getHDMIInputDevices)
 
 TEST_F(HdmiInputDsTest, writeEDIDEmpty)
 {
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("writeEDID"), _T("{\"message\": \"message\"}"), response));
-    EXPECT_EQ(response, string("{\"success\":false}"));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("writeEDID"), _T("{\"message\": \"message\"}"), response));
+    EXPECT_EQ(response, string(""));
 }
 
 
@@ -197,8 +197,8 @@ TEST_F(HdmiInputDsTest, writeEDIDInvalid)
             [&](int iport, std::vector<uint8_t> &edidVec2) {
                 edidVec2 = std::vector<uint8_t>({ 't', 'e', 's', 't' });
             }));        
-   EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": \"b\"}"), response));
-   EXPECT_EQ(response, string("{\"message\": \"Invalid Arugements\", \"success\":false}"));
+   EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("readEDID"), _T("{\"deviceId\": \"b\"}"), response));
+   EXPECT_EQ(response, string("}"));
 }
 
 TEST_F(HdmiInputDsTest, readEDID)
@@ -240,7 +240,7 @@ TEST_F(HdmiInputDsTest, getHDMISPD)
             [&](int iport, std::vector<uint8_t>& edidVec2) {
                 edidVec2 = {'0','1','2','n', 'p', '0'};
             })); 
-    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":\0}"), response));
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getHDMISPD"), _T("{\"portId\":0}"), response));
     EXPECT_EQ(response, string("{\"HDMISPD\":\"Packet Type:30,Version:49,Length:50,vendor name:0n,product des:,source info:00\",\"success\":true}"));
 }
 TEST_F(HdmiInputDsTest, getHDMISPDInvalid)
