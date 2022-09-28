@@ -353,7 +353,7 @@ TEST_F(HdmiInputDsTest, getSupportedGameFeaturesIncorrect)
             [&](std::vector<std::string> &supportedFeatures) {
                 supportedFeatures = {"ALLM"};
             })); 
-    EXPECT_EQ(Core::ERROR_General, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"Invalid\"}"), response));
+    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"Invalid\"}"), response));
     EXPECT_EQ(response, string("")); 
 }
 
