@@ -261,10 +261,21 @@ TEST_F(HdmiInputDsTest, setEdidVersionInvalid)
     EXPECT_EQ(response, string(""));
 }
 
-TEST_F(HdmiInputDsTest, setEdidVersion)
+TEST_F(HdmiInputDsTest, setEdidVersion14)
 {
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"HDMI1.4\"}"), response));
     EXPECT_EQ(response, string("{\"success\":true}"));
+}
+
+TEST_F(HdmiInputDsTest, setEdidVersion20)
+{
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"HDMI2.0\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":true}"));
+}
+TEST_F(HdmiInputDsTest, setEdidVersionEmpty)
+{
+    EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("setEdidVersion"), _T("{\"portId\": \"0\", \"edidVersion\":\"\"}"), response));
+    EXPECT_EQ(response, string("{\"success\":false}"));
 }
 
 TEST_F(HdmiInputDsTest, getEdidVersionInvalid)
@@ -334,6 +345,16 @@ TEST_F(HdmiInputDsTest, getSupportedGameFeatures)
             })); 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"ALLM\"}"), response));
     EXPECT_EQ(response, string("{\"supportedGameFeatures\":[\"ALLM\"],\"success\":true}")); 
+}
+TEST_F(HdmiInputDsTest, getSupportedGameFeaturesIncorrect)
+{
+    ON_CALL(hdmiInputImplMock, getSupportedGameFeatures(::testing::_))
+        .WillByDefault(::testing::Invoke(
+            [&](std::vector<std::string> &supportedFeatures) {
+                supportedFeatures = {"ALLM"};
+            })); 
+    EXPECT_EQ(Core::ERROR_General, handler.Invoke(connection, _T("getSupportedGameFeatures"), _T("{\"supportedGameFeatures\": \"Invalid\"}"), response));
+    EXPECT_EQ(response, string("")); 
 }
 
 TEST_F(HdmiInputDsTest, getHdmiGameFeatureStatusInvalid)
