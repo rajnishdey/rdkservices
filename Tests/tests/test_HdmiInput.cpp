@@ -480,7 +480,7 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedDefault)
     handler.Unsubscribe(0, _T("onSignalChanged"), _T("client.events.onSignalChanged"), message); 
 }
 
-/*TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate1)
 {
    ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
@@ -490,7 +490,6 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedDefault)
                 string text;
                 EXPECT_TRUE(json->ToString(text));
                 EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":1920,\"height\":1080,\"progressive\":false,\"frameRateN\":60000,\"frameRateD\":1001}}")));
-
                 return Core::ERROR_NONE;
             }));
     IARM_Bus_DSMgr_EventData_t eventData;
@@ -501,33 +500,175 @@ TEST_F(HdmiInputInitializedEventDsTest, onSignalChangedDefault)
     handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
     dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
     handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
-}*/
-TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate)
-{
-   testVideoStream(dsVIDEO_PIXELRES_1920x1080,dsVIDEO_FRAMERATE_59dot94, 1920, 1080, 60000, 1001);
 }
-void testVideoStream(dsVideoResolution_t resolution,dsVideoFrameRate_t framerate, int width, int height, int framerateN, int framerateD){
-    ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate2)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
                 string text;
                 EXPECT_TRUE(json->ToString(text));
-                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":%n,\"height\":%n,\"progressive\":false,\"frameRateN\":%n,\"frameRateD\":%n}}", width, height,framerateN, framerateD)));
-
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":720,\"height\":576,\"progressive\":false,\"frameRateN\":24000,\"frameRateD\":1000}}")));
                 return Core::ERROR_NONE;
             }));
     IARM_Bus_DSMgr_EventData_t eventData;
     eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
-    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = resolution;	
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_720x480;	
     eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
-    eventData.data.hdmi_in_video_mode.resolution.frameRate = framerate;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_24;	
     handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
     dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
     handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
 }
-
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate3)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":720,\"height\":576,\"progressive\":false,\"frameRateN\":25000,\"frameRateD\":1000}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_720x576;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_25;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate4)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":3840,\"height\":2160,\"progressive\":false,\"frameRateN\":30000,\"frameRateD\":1000}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_3840x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_30;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate5)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":4096,\"height\":2160,\"progressive\":false,\"frameRateN\":50000,\"frameRateD\":1000}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_4096x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_50;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate6)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":4096,\"height\":2160,\"progressive\":false,\"frameRateN\":60000,\"frameRateD\":1000}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_4096x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_60;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate7)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":4096,\"height\":2160,\"progressive\":false,\"frameRateN\":24000,\"frameRateD\":1001}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_4096x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_23dot98;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdate5)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":4096,\"height\":2160,\"progressive\":false,\"frameRateN\":30000,\"frameRateD\":1001}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = dsVIDEO_PIXELRES_4096x2160;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = dsVIDEO_FRAMERATE_29dot97;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
+TEST_F(HdmiInputInitializedEventDsTest, videoStreamInfoUpdateDefault)
+{
+   ASSERT_TRUE(dsHdmiVideoModeEventHandler != nullptr);
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
+                string text;
+                EXPECT_TRUE(json->ToString(text));
+                EXPECT_EQ(text, string(_T("{\"jsonrpc\":\"2.0\",\"method\":\"client.events.videoStreamInfoUpdate.videoStreamInfoUpdate\",\"params\":{\"id\":0,\"locator\":\"hdmiin:\\/\\/localhost\\/deviceid\\/0\",\"width\":1920,\"height\":1080,\"progressive\":false,\"frameRateN\":60000,\"frameRateD\":1000}}")));
+                return Core::ERROR_NONE;
+            }));
+    IARM_Bus_DSMgr_EventData_t eventData;
+    eventData.data.hdmi_in_video_mode.port =dsHDMI_IN_PORT_0;
+    eventData.data.hdmi_in_video_mode.resolution.pixelResolution = null;	
+    eventData.data.hdmi_in_video_mode.resolution.interlaced = true;	
+    eventData.data.hdmi_in_video_mode.resolution.frameRate = null;	
+    handler.Subscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message);
+    dsHdmiVideoModeEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, &eventData , 0);
+    handler.Unsubscribe(0, _T("videoStreamInfoUpdate"), _T("client.events.videoStreamInfoUpdate"), message); 
+}
 TEST_F(HdmiInputInitializedEventDsTest, hdmiGameFeatureStatusUpdate)
 {
    ASSERT_TRUE(dsHdmiGameFeatureStatusEventHandler != nullptr);
