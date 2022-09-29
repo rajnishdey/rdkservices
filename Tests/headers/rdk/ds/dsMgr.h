@@ -18,7 +18,6 @@
 */
  
 
-
 /**
 * @defgroup devicesettings
 * @{
@@ -26,7 +25,7 @@
 * @{
 **/
 
-
+#pragma once
 #ifndef RPDSMGR_H_
 #define RPDSMGR_H_
 #include "libIARM.h"
@@ -63,15 +62,15 @@ typedef enum _DSMgr_EventId_t {
 	IARM_BUS_DSMGR_EVENT_AUDIO_LEVEL_CHANGED,           /*!< Audio Level Change Event*/
 	IARM_BUS_DSMGR_EVENT_AUDIO_OUT_HOTPLUG,            /*!< AUDIO OUT HPD change event */
 	IARM_BUS_DSMGR_EVENT_AUDIO_FORMAT_UPDATE,  /*!< Audio Format change event */
-        IARM_BUS_DSMGR_EVENT_AUDIO_PRIMARY_LANGUAGE_CHANGED,  /*!< Audio Primary Language change event */
-        IARM_BUS_DSMGR_EVENT_AUDIO_SECONDARY_LANGUAGE_CHANGED,  /*!< Audio Secondary Language change event */
-        IARM_BUS_DSMGR_EVENT_AUDIO_FADER_CONTROL_CHANGED,  /*!< Audio Fader Control change event */
-        IARM_BUS_DSMGR_EVENT_AUDIO_ASSOCIATED_AUDIO_MIXING_CHANGED,  /*!< Audio Associated Audio Mixing change event */
+    IARM_BUS_DSMGR_EVENT_AUDIO_PRIMARY_LANGUAGE_CHANGED,  /*!< Audio Primary Language change event */
+    IARM_BUS_DSMGR_EVENT_AUDIO_SECONDARY_LANGUAGE_CHANGED,  /*!< Audio Secondary Language change event */
+    IARM_BUS_DSMGR_EVENT_AUDIO_FADER_CONTROL_CHANGED,  /*!< Audio Fader Control change event */
+    IARM_BUS_DSMGR_EVENT_AUDIO_ASSOCIATED_AUDIO_MIXING_CHANGED,  /*!< Audio Associated Audio Mixing change event */
 	IARM_BUS_DSMGR_EVENT_VIDEO_FORMAT_UPDATE,  /*!< Video Format change event */
 	IARM_BUS_DSMGR_EVENT_DISPLAY_FRAMRATE_PRECHANGE,   /*!< Frame rate pre change */
 	IARM_BUS_DSMGR_EVENT_DISPLAY_FRAMRATE_POSTCHANGE,     /*!< Frame rate post change */
-        IARM_BUS_DSMGR_EVENT_AUDIO_PORT_STATE,  /*!< Audio Port Init State */
-        IARM_BUS_DSMGR_EVENT_SLEEP_MODE_CHANGED,           /*!< Sleep Mode Change Event*/
+    IARM_BUS_DSMGR_EVENT_AUDIO_PORT_STATE,  /*!< Audio Port Init State */
+    IARM_BUS_DSMGR_EVENT_SLEEP_MODE_CHANGED,           /*!< Sleep Mode Change Event*/
 	IARM_BUS_DSMGR_EVENT_MAX,					       /*!< Max Event  */
 } IARM_Bus_DSMgr_EventId_t;
 
@@ -81,7 +80,7 @@ typedef enum _DSMgr_EventId_t {
 typedef struct _DSMgr_EventData_t {
     union {
         struct _RESOLUTION_DATA{
-        	/* Declare Event Data structure for Video resolution Event */
+        /* Declare Event Data structure for Video resolution Event */
             int width;              /*!< Resolution Width  */
             int height;              /*!< Key code */ 
         } resn; /*Reolution data*/
@@ -155,7 +154,7 @@ typedef struct _DSMgr_EventData_t {
 
         struct _FPD_TIME_FORMAT
         {
-            dsFPDTimeFormat_t  eTimeFormat;   
+            dsFPDTimeFormat_t  eTimeFormat;
         }FPDTimeFormat;
 
         struct _HDCP_PROTOCOL_DATA

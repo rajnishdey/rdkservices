@@ -60,6 +60,7 @@ include_directories(../LocationSync
         ../helpers
         ../SystemServices
         ../HdmiInput
+        ../HdcpProfile
         )
 link_directories(../LocationSync
         ../PersistentStore
@@ -78,6 +79,7 @@ link_directories(../LocationSync
         ../Messenger
         ../DeviceInfo
         ../HdmiInput
+        ../HdcpProfile
         )
 
 target_link_libraries(${PROJECT_NAME}
@@ -100,6 +102,7 @@ target_link_libraries(${PROJECT_NAME}
         ${NAMESPACE}Messenger
         ${NAMESPACE}DeviceInfo
         ${NAMESPACE}HdmiInput
+        ${NAMESPACE}HdcpProfile
         )
 
 target_include_directories(${PROJECT_NAME}
