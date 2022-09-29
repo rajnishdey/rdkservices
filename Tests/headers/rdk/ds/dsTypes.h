@@ -471,20 +471,24 @@ typedef enum _dsVideoResolution_t{
  * This enumeration defines all of the standard TV supported resolution with interlace information.
  */
 typedef enum _dsTVResolution_t{
-    dsTV_RESOLUTION_480i = 0x0001,      /**< 480i Resolution.                         */
-    dsTV_RESOLUTION_480p = 0x0002,      /**< 480p Resolution.                         */
-    dsTV_RESOLUTION_576i = 0x0004,      /**< 576p Resolution.                         */
-    dsTV_RESOLUTION_576p = 0x0008,      /**< 576p Resolution.                         */
-    dsTV_RESOLUTION_576p50 = 0x0010,      /**< 576p50 Resolution.                       */
-    dsTV_RESOLUTION_720p = 0x0020,      /**< 720p Resolution.                         */
-    dsTV_RESOLUTION_720p50 = 0x040,      /**< 720p50 Resolution.                    */
-    dsTV_RESOLUTION_1080i = 0x0080,      /**< 1080i Resolution.                       */
-    dsTV_RESOLUTION_1080p = 0x0100,      /**< 1080p Resolution.                       */
-    dsTV_RESOLUTION_1080p30 = 0x0200,      /**< 1080p30 Resolution.                     */
-    dsTV_RESOLUTION_1080i50 = 0x0400,      /**< 1080i50 Resolution.                     */
-    dsTV_RESOLUTION_1080p60 = 0x0800,      /**< 1080p60 Resolution.                     */
-    dsTV_RESOLUTION_2160p30 = 0x1000,      /**< 2160p30 Resolution.                   */
-    dsTV_RESOLUTION_2160p60 = 0x2000,      /**< 2160p60 Resolution.                   */ 
+    dsTV_RESOLUTION_480i = 0x00001,      /**< 480i Resolution.                         */
+    dsTV_RESOLUTION_480p = 0x00002,      /**< 480p Resolution.                         */
+    dsTV_RESOLUTION_576i = 0x00004,      /**< 576p Resolution.                         */
+    dsTV_RESOLUTION_576p = 0x00008,      /**< 576p Resolution.                         */
+    dsTV_RESOLUTION_576p50 = 0x00010,      /**< 576p50 Resolution.                       */
+    dsTV_RESOLUTION_720p = 0x00020,      /**< 720p Resolution.                         */
+    dsTV_RESOLUTION_720p50 = 0x00040,      /**< 720p50 Resolution.                    */
+    dsTV_RESOLUTION_1080i = 0x00080,      /**< 1080i Resolution.                       */
+    dsTV_RESOLUTION_1080p = 0x00100,      /**< 1080p Resolution.                       */
+    dsTV_RESOLUTION_1080p24 = 0x00200,      /**< 1080p24 Resolution.                     */
+    dsTV_RESOLUTION_1080i25 = 0x00400,      /**< 1080i25 Resolution.                     */
+    dsTV_RESOLUTION_1080p30 = 0x00800,      /**< 1080p30 Resolution.                     */
+    dsTV_RESOLUTION_1080i50 = 0x01000,      /**< 1080i50 Resolution.                     */
+    dsTV_RESOLUTION_1080p50 = 0x02000,      /**< 1080p50 Resolution.                     */
+    dsTV_RESOLUTION_1080p60 = 0x04000,      /**< 1080p60 Resolution.                     */
+    dsTV_RESOLUTION_2160p30 = 0x08000,      /**< 2160p30 Resolution.                   */
+    dsTV_RESOLUTION_2160p50 = 0x10000,      /**< 2160p30 Resolution.                   */
+    dsTV_RESOLUTION_2160p60 = 0x20000,      /**< 2160p60 Resolution.                   */ 
     
 }dsTVResolution_t;
 
