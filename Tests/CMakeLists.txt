@@ -62,6 +62,7 @@ include_directories(../LocationSync
         ../SystemServices
         ../HdmiInput
         ../HdcpProfile
+	../DisplayInfo
         )
 link_directories(../LocationSync
         ../PersistentStore
@@ -82,6 +83,7 @@ link_directories(../LocationSync
         ../DeviceInfo
         ../HdmiInput
         ../HdcpProfile
+	../DisplayInfo
         )
 
 target_link_libraries(${PROJECT_NAME}
@@ -107,7 +109,8 @@ target_link_libraries(${PROJECT_NAME}
         ${NAMESPACE}DeviceInfo
         ${NAMESPACE}HdmiInput
         ${NAMESPACE}HdcpProfile
-        )
+	${NAMESPACE}DisplayInfo
+	)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC

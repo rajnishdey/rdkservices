@@ -421,6 +421,24 @@ typedef enum _dsDisplayEvent_t {
     dsDISPLAY_EVENT_MAX
 } dsDisplayEvent_t;
 
+typedef enum _dsDisplayQuantizationRange_t
+{
+    dsDISPLAY_QUANTIZATIONRANGE_UNKNOWN = 0,
+    dsDISPLAY_QUANTIZATIONRANGE_LIMITED = 1,
+    dsDISPLAY_QUANTIZATIONRANGE_FULL = 2
+} dsDisplayQuantizationRange_t;
+
+typedef enum _dsDisplayColorSpace_t
+{
+    dsDISPLAY_COLORSPACE_UNKNOWN = 0,     /* Unknown color space */
+    dsDISPLAY_COLORSPACE_RGB = 1,         /* RGB color space */
+    dsDISPLAY_COLORSPACE_YCbCr422 = 2,    /* YCbCr4.2.2 color space */
+    dsDISPLAY_COLORSPACE_YCbCr444 = 3,    /* YCbCr4.4.4 color space */
+    dsDISPLAY_COLORSPACE_YCbCr420 = 4,    /* YCbCr4.2.0 color space */
+    dsDISPLAY_COLORSPACE_AUTO = 5         /* Automatic color space */
+} dsDisplayColorSpace_t;
+
+
 namespace device {
 
 template <class T>
@@ -463,7 +481,52 @@ public:
 };
 
 }
+namespace device {
 
+class PixelResolutionImpl {
+public:
+    virtual ~PixelResolutionImpl() = default;
+
+};
+
+class PixelResolution {
+public:
+    PixelResolutionImpl* impl;
+
+    };
+
+}
+namespace device {
+
+class AudioStereoModeImpl {
+public:
+    virtual ~AudioStereoModeImpl() = default;
+
+    };
+class AudioStereoMode {
+public:
+
+    static AudioStereoMode& getInstance(int)
+    {
+        static AudioStereoMode instance;
+        return instance;
+    }
+
+    AudioStereoModeImpl* impl;
+    /*static const AudioStereoMode kMono = dsAUDIO_STEREO_MODE;
+    static const AudioStereoMode kStereo = dsAUDIO_STEREO_STEREO;
+    static const AudioStereoMode kSurround = dsAUDIO_STEREO_SURROUND;
+*/
+//    static const int AudioStereoMode kPassThru;
+  /*  //static const int kPassThru;
+    static const AudioStereoMode kDD = dsAUDIO_STEREO_DD;
+    static const AudioStereoMode kDDPlus = dsAUDIO_STEREO_DDPLUS;
+    static const AudioStereoMode kMax = dsAUDIO_STEREO_MAX;
+*/
+
+};
+//static kPassThru = (AudioStereoMode)dsAUDIO_STEREO_PASSTHRU;
+}
 namespace device {
 
 class AudioOutputPortImpl {
@@ -475,6 +538,7 @@ public:
     virtual void getAudioCapabilities(int* capabilities) = 0;
     virtual void getMS12Capabilities(int* capabilities) = 0;
     virtual bool isAudioMSDecode() const = 0;
+    virtual AudioStereoMode getStereoMode(bool persist) const = 0;
 };
 
 class AudioOutputPort {
@@ -505,6 +569,11 @@ public:
     {
         return impl->isAudioMSDecode();
     }
+    AudioStereoMode getStereoMode(bool persist)
+    {
+        return impl->getStereoMode(persist);
+    }
+
 };
 
 }
@@ -545,6 +614,7 @@ public:
     {
         return impl->scaleVideo(x, y, width, height);
     }
+    
 };
 
 }
@@ -679,6 +749,8 @@ public:
     virtual int setFRFMode(int frfmode) const = 0;
     virtual int getCurrentDisframerate(char* framerate) const = 0;
     virtual int setDisplayframerate(const char* framerate) const = 0;
+    virtual int getHDRCapabilities(int *capbilities) const = 0;
+
 };
 
 class VideoDevice {
@@ -704,9 +776,62 @@ public:
     {
         return impl->setDisplayframerate(framerate);
     }
+    int getHDRCapabilities(int *capabilities) const
+    {
+        return impl->getHDRCapabilities(capabilities);
+    }
+
 };
 
 }
+namespace device{
+        class FrameRate{
+//	float _value;
+	public:
+	static const int kUknown;
+        static const int k24;
+        static const int k25;
+        static const int k30;
+        static const int k60;
+        static const int k23dot98;
+        static const int k29dot97;
+        static const int k50;
+        static const int k59dot94;
+        static const int kMax;
+
+	//static const FrameRate & getInstance(int id);
+	//static const FrameRate & getInstance (const std::string &name);
+
+	//FrameRate(float value);
+	//FrameRate(int id);
+	virtual ~FrameRate();
+        };
+}
+//namespace device{
+
+//	typedef int _SafetyCheck[(dsUTL_DIM(_values) == dsVIDEO_FRAMERATE_MAX) ? 1 : -1];
+//	typedef int _SafetyCheck[(dsUTL_DIM(_names) == dsVIDEO_FRAMERATE_MAX) ? 1 : -1];
+
+//        static const int kUknown;
+//	FrameRate k24 =(FrameRate)dsVIDEO_FRAMERATE_24;
+/*        static const int k25;
+        static const int k30;
+        static const int k60;
+        static const int k23dot98;
+        static const int k29dot97;
+        static const int k50;
+        static const int k59dot94;
+        static const int kMax;
+*/
+	/*const FrameRate & FrameRate::getInstance(int id)
+	{
+//		if(::isValid(id)){
+			return VideoResolution::getInstance().getFrameRate(id);
+//		}
+	}*/
+	
+//}
+
 
 namespace device {
 
@@ -715,6 +840,8 @@ public:
     virtual ~VideoResolutionImpl() = default;
 
     virtual const std::string& getName() const = 0;
+    virtual const PixelResolution getPixelResolution() const = 0;
+    virtual const FrameRate getFrameRate() const = 0;
 };
 
 class VideoResolution {
@@ -724,6 +851,14 @@ public:
     const std::string& getName() const
     {
         return impl->getName();
+    }
+    const PixelResolution getPixelResolution() const
+    {
+        return impl->getPixelResolution();
+    }
+    const FrameRate getFrameRate() const
+    {
+        return impl->getFrameRate();
     }
 };
 
@@ -755,6 +890,26 @@ public:
 };
 
 }
+namespace device {
+
+class DisplayImpl {
+public:
+    virtual ~DisplayImpl() = default;
+
+    virtual void getEDIDBytes(std::vector<uint8_t> &edid) = 0;
+};
+
+class Display {
+public:
+    DisplayImpl* impl;
+
+
+    void getEDIDBytes(std::vector<uint8_t> &edid)
+    {
+        return impl->getEDIDBytes(edid);
+    }
+};
+}
 
 namespace device {
 
@@ -772,6 +927,17 @@ public:
     virtual AudioOutputPort& getAudioOutputPort() const = 0;
     virtual bool isDisplayConnected() = 0;
     virtual bool isContentProtected() = 0;
+    virtual Display getDisplay() = 0;
+    virtual bool IsOutputHDR() = 0;
+    virtual bool getTVHDRCapabilities(int *capabilities) = 0;
+    virtual int getVideoEOTF() = 0;
+    virtual int getQuantizationRange() = 0;
+    virtual int getColorDepth() = 0;
+    virtual const VideoResolution& getResolution() const = 0;
+    virtual int getColorSpace() = 0;
+    virtual bool SetHdmiPreference(dsHdcpProtocolVersion_t protocol) = 0;
+    virtual int GetHdmiPreference() = 0;
+
 };
 
 class VideoOutputPort {
@@ -827,6 +993,48 @@ public:
     {
         return impl->isContentProtected();
     }
+Display getDisplay()
+    {
+        return impl->getDisplay();
+    }
+    bool IsOutputHDR()
+    {
+        return impl->IsOutputHDR();
+    }
+
+    int getTVHDRCapabilities(int *capabilities) const
+    {
+        return impl->getTVHDRCapabilities(capabilities);
+    }
+    int getVideoEOTF()
+    {
+        return impl->getVideoEOTF();
+    }
+    int getQuantizationRange()
+    {
+        return impl->getQuantizationRange();
+    }
+    int getColorDepth()
+    {
+        return impl->getColorDepth();
+    }
+    const VideoResolution& getResolution() const
+    {
+        return impl->getResolution();
+    }
+    int getColorSpace()
+    {
+        return impl->getColorSpace();
+    }
+    bool SetHdmiPreference(dsHdcpProtocolVersion_t protocol)
+    {
+        return impl->SetHdmiPreference(protocol);
+    }
+    int GetHdmiPreference()
+    {
+        return impl->GetHdmiPreference();
+    }
+
 };
 
 }
@@ -980,5 +1188,60 @@ public:
         return impl->getDefaultAudioPortName();
     }
 };
+
+}
+
+namespace edid_parser {
+enum edid_status_e{
+        EDID_STATUS_OK,
+        EDID_STATUS_INVALID_PARAMETER,
+        EDID_STATUS_NOT_SUPPORTED,
+        EDID_STATUS_INVALID_HEADER,
+        EDID_STATUS_INVALID_CHECKSUm
+      };
+
+struct edid_res_t{
+    int width;
+    int height;
+    int refresh;
+    };
+typedef enum colorimetry_info_t
+{
+    COLORIMETRY_INFO_UNKNOWN = 0x0,         /* Unknown Colorimetry */
+    COLORIMETRY_INFO_XVYCC601 = 0x01,     /* Standard Definition Colorimetry based on IEC 61966-2-4 */
+    COLORIMETRY_INFO_XVYCC709 = 0x02,     /* High Definition Colorimetry based on IEC 61966-2-4 */
+    COLORIMETRY_INFO_SYCC601 = 0x04,      /* Colorimetry based on IEC 61966-2-1/Amendment 1 */
+    COLORIMETRY_INFO_ADOBEYCC601 = 0x08,  /* Colorimetry based on IEC 61966-2-5 [32], Annex A */
+    COLORIMETRY_INFO_ADOBERGB = 0x10,     /* Colorimetry based on IEC 61966-2-5 */
+    COLORIMETRY_INFO_BT2020CL = 0x20,     /* Colorimetry based on ITU-R BT.2020 [39] Y’cC’BCC’RC */
+    COLORIMETRY_INFO_BT2020NCL = 0x40,    /* Colorimetry based on ITU-R BT.2020 [39] Y’C’BC’R */
+    COLORIMETRY_INFO_BT2020RGB = 0x80,    /* Colorimetry based on ITU-R BT.2020 [39] R’G’B’ */
+    COLORIMETRY_INFO_DCI_P3 = 0x100       /* Colorimetry based on DCI-P3 */
+} colorimetry_info_t;
+struct edid_data_t {
+        edid_res_t res;
+        uint32_t colorimetry_info;
+    };
+class edid_parserImpl {
+public:
+    virtual ~edid_parserImpl() = default;
+    virtual edid_status_e EDID_Verify(unsigned char* edidbytes, size_t count) = 0;
+    virtual edid_status_e EDID_Parse(unsigned char* edidbytes, size_t count, edid_data_t* data_ptr) = 0;
+};
+
+/*lass edid_parser{
+
+     edid_parserImpl* impl;
+     edid_status_e EDID_Verify(unsigned char* edidbytes, size_t count)
+    {
+	    //edid_parser::edid_parserImpl* impl;
+            return impl->EDID_Verify(edidbytes, count);
+    }
+     edid_status_e EDID_Parse(unsigned char* edidbytes, size_t count, edid_data_t* data_ptr)
+    {
+	    //edid_parser::edid_parserImpl* impl;
+            return impl->EDID_Verify(edidbytes, count, data_ptr);
+    }
+//};*/
 
 }
