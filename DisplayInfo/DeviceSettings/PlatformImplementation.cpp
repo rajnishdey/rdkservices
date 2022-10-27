@@ -68,7 +68,7 @@ public:
             device::Manager::Initialize();
             TRACE(Trace::Information, (_T("device::Manager::Initialize success")));
         }
-        catch(...)
+        catch (const device::Exception& err)
         {
            TRACE(Trace::Error, (_T("device::Manager::Initialize failed")));
         }
@@ -174,7 +174,8 @@ public:
             std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
             device::VideoOutputPort vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort.c_str());
             device::AudioStereoMode mode = vPort.getAudioOutputPort().getStereoMode(true);
-            if (mode == device::AudioStereoMode::kPassThru)
+            int kPassThru = mode.getId();
+            if (kPassThru == device::AudioStereoMode::kPassThru)
                 value = true;
         }
         catch (const device::Exception& err)
@@ -211,7 +212,7 @@ public:
     }
     uint32_t VerticalFreq(uint32_t& value) const override
     {
-        vector<uint8_t> edidVec;
+        std::vector<uint8_t> edidVec;
         uint32_t ret = GetEdidBytes(edidVec);
         if (ret == Core::ERROR_NONE)
         {
@@ -307,7 +308,7 @@ public:
     uint32_t WidthInCentimeters(uint8_t& width /* @out */) const override
     {
         int ret = Core::ERROR_NONE;
-        vector<uint8_t> edidVec;
+        std::vector<uint8_t> edidVec;
         ret = GetEdidBytes(edidVec);
         if (Core::ERROR_NONE == ret)
         {
@@ -358,11 +359,11 @@ public:
 
     uint32_t EDID (uint16_t& length /* @inout */, uint8_t data[] /* @out @length:length */) const override
     {
-        vector<uint8_t> edidVec({'u','n','k','n','o','w','n' });
+        std::vector<uint8_t> edidVec({'u','n','k','n','o','w','n' });
         int ret = Core::ERROR_NONE;
         try
         {
-            vector<uint8_t> edidVec2;
+            std::vector<uint8_t> edidVec2;
             std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
             device::VideoOutputPort vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort.c_str());
             if (vPort.isDisplayConnected())
@@ -382,8 +383,8 @@ public:
             ret = Core::ERROR_GENERAL;
         }
         //convert to base64
-        uint16_t size = min(edidVec.size(), (size_t)numeric_limits<uint16_t>::max());
-        if(edidVec.size() > (size_t)numeric_limits<uint16_t>::max())
+        uint16_t size = std::min(edidVec.size(), (size_t)std::numeric_limits<uint16_t>::max());
+        if(edidVec.size() > (size_t)std::numeric_limits<uint16_t>::max())
             LOGERR("Size too large to use ToString base64 wpe api");
         int i = 0;
         for (; i < length && i < size; i++)
@@ -403,8 +404,8 @@ public:
             for (size_t i = 0; i < vPorts.size(); i++)
             {
                 device::VideoOutputPort &vPort = vPorts.at(i);
-                if (vPort.isDisplayConnected() && ((vPort.getType() == device::VideoOutputPortType::kHDMI) \
-                                                || (vPort.getType() == device::VideoOutputPortType::kInternal)))
+                if (vPort.isDisplayConnected() && ((vPort.getType().getId() == device::VideoOutputPortType::kHDMI) \
+                                                || (vPort.getType().getId() == device::VideoOutputPortType::kInternal)))
                 {
                     name = vPort.getName();
                     TRACE(Trace::Information, (_T("Connected video output port = %s"), name));
@@ -470,23 +471,23 @@ public:
             std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
             device::VideoOutputPort vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort.c_str());
             device::VideoResolution resolution = vPort.getResolution();
-            device::PixelResolution pr = resolution.getPixelResolution();
+            // device::PixelResolution pr = resolution.getPixelResolution();
             device::FrameRate fr = resolution.getFrameRate();
-            if (fr == device::FrameRate::k24 ) {
+            if (fr.getId() == device::FrameRate::k24 ) {
                 rate = FRAMERATE_24;
-            } else if(fr == device::FrameRate::k25) {
+            } else if(fr.getId() == device::FrameRate::k25) {
                 rate = FRAMERATE_25;
-            } else if(fr == device::FrameRate::k30) {
+            } else if(fr.getId() == device::FrameRate::k30) {
                 rate = FRAMERATE_30;
-            } else if(fr == device::FrameRate::k60) {
+            } else if(fr.getId() == device::FrameRate::k60) {
                 rate = FRAMERATE_60;
-            } else if(fr == device::FrameRate::k23dot98) {
+            } else if(fr.getId() == device::FrameRate::k23dot98) {
                 rate = FRAMERATE_23_976;
-            } else if(fr == device::FrameRate::k29dot97) {
+            } else if(fr.getId() == device::FrameRate::k29dot97) {
                 rate = FRAMERATE_29_97;
-            } else if(fr == device::FrameRate::k50) {
+            } else if(fr.getId() == device::FrameRate::k50) {
                 rate = FRAMERATE_50;
-            } else if(fr == device::FrameRate::k59dot94) {
+            } else if(fr.getId() == device::FrameRate::k59dot94) {
                 rate = FRAMERATE_59_94;
             } else {
                 rate = FRAMERATE_UNKNOWN;
@@ -577,7 +578,7 @@ public:
     uint32_t Colorimetry(IColorimetryIterator*& colorimetry /* @out */) const override
     {
         std::list<Exchange::IDisplayProperties::ColorimetryType> colorimetryCaps;
-        vector<uint8_t> edidVec;
+        std::vector<uint8_t> edidVec;
         uint32_t ret = GetEdidBytes(edidVec);
         if (ret == Core::ERROR_NONE)
         {
@@ -756,7 +757,7 @@ private:
     mutable Core::CriticalSection _adminLock;
 
 private:
-    uint32_t GetEdidBytes(vector<uint8_t> &edid) const
+    uint32_t GetEdidBytes(std::vector<uint8_t> &edid) const
     {
         uint32_t ret = Core::ERROR_NONE;
         try

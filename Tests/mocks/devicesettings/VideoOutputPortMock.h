@@ -18,4 +18,14 @@ public:
     MOCK_METHOD(bool, isDisplayConnected, (), (override));
     MOCK_METHOD(int, getHDCPStatus, (), (override));
     MOCK_METHOD(bool, isContentProtected, (), (override));
+    MOCK_METHOD(device::Display, getDisplay, (), (override));
+    MOCK_METHOD(bool, IsOutputHDR, (), (override));
+    MOCK_METHOD(bool, getTVHDRCapabilities, (int *capabilities), (override));
+    MOCK_METHOD(int, getVideoEOTF, (), (override));
+    MOCK_METHOD(int, getQuantizationRange, (), (override));
+    MOCK_METHOD(int, getColorDepth, (), (override));
+    MOCK_METHOD(device::VideoResolution&, getResolution, (), (const, override));
+    MOCK_METHOD(int, getColorSpace, (), (override));
+    MOCK_METHOD(bool, SetHdmiPreference, (dsHdcpProtocolVersion_t protocol), (override));
+    MOCK_METHOD(int, GetHdmiPreference, (), (override));
 };
