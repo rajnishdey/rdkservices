@@ -13,4 +13,5 @@ public:
     MOCK_METHOD(void, getAudioCapabilities, (int* capabilities), (override));
     MOCK_METHOD(void, getMS12Capabilities, (int* capabilities), (override));
     MOCK_METHOD(bool, isAudioMSDecode, (), (const,override));
+    MOCK_METHOD(device::AudioStereoMode&, getStereoMode, (bool usePersist), (const, override));
 };

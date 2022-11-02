@@ -12,4 +12,5 @@ public:
     MOCK_METHOD(int, setFRFMode, (int frfmode), (const, override));
     MOCK_METHOD(int, getCurrentDisframerate, (char* framerate), (const, override));
     MOCK_METHOD(int, setDisplayframerate, (const char* framerate), (const, override));
+    MOCK_METHOD(int, getHDRCapabilities, (int *capbilities), (const, override));
 };

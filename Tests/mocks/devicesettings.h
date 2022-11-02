@@ -501,18 +501,20 @@ namespace device {
 class AudioStereoModeImpl {
 public:
     virtual ~AudioStereoModeImpl() = default;
+    virtual int getId() const = 0;
 
     };
 class AudioStereoMode {
 public:
-
-    static AudioStereoMode& getInstance(int)
-    {
-        static AudioStereoMode instance;
-        return instance;
-    }
+    static const AudioStereoMode & getInstance(int id);
+    //static AudioStereoMode & kPassThru;
+    static const int kPassThru = dsAUDIO_STEREO_PASSTHRU;
 
     AudioStereoModeImpl* impl;
+
+    int getId() const {
+        return impl->getId();
+    };
     /*static const AudioStereoMode kMono = dsAUDIO_STEREO_MODE;
     static const AudioStereoMode kStereo = dsAUDIO_STEREO_STEREO;
     static const AudioStereoMode kSurround = dsAUDIO_STEREO_SURROUND;
@@ -529,6 +531,9 @@ public:
 }
 namespace device {
 
+class Enumerable {
+	int getId() const;
+};
 class AudioOutputPortImpl {
 public:
     virtual ~AudioOutputPortImpl() = default;
@@ -538,12 +543,24 @@ public:
     virtual void getAudioCapabilities(int* capabilities) = 0;
     virtual void getMS12Capabilities(int* capabilities) = 0;
     virtual bool isAudioMSDecode() const = 0;
-    virtual AudioStereoMode getStereoMode(bool persist) const = 0;
+    virtual AudioStereoMode & getStereoMode(bool usePersist = false) const = 0;
 };
 
-class AudioOutputPort {
+class AudioOutputPort : public Enumerable {
+
 public:
     AudioOutputPortImpl* impl;
+    
+    static AudioOutputPort& getInstance()
+    {
+        static AudioOutputPort instance;
+        return instance;
+    }
+
+    static AudioOutputPort& getInstance(int)
+    {
+        return getInstance();
+    }
 
     const std::string& getName() const
     {
@@ -569,9 +586,10 @@ public:
     {
         return impl->isAudioMSDecode();
     }
-    AudioStereoMode getStereoMode(bool persist)
+    // AudioStereoMode getStereoMode(bool persist)
+    AudioStereoMode & getStereoMode(bool usePersist)
     {
-        return impl->getStereoMode(persist);
+        return impl->getStereoMode(usePersist);
     }
 
 };
@@ -785,53 +803,34 @@ public:
 
 }
 namespace device{
-        class FrameRate{
+    class FrameRateImpl {
+public:
+    virtual ~FrameRateImpl() = default;
+    virtual int getId() const = 0;
+
+    };
+    class FrameRate{
 //	float _value;
 	public:
+    FrameRateImpl *impl;
+
 	static const int kUknown;
-        static const int k24;
-        static const int k25;
-        static const int k30;
-        static const int k60;
-        static const int k23dot98;
-        static const int k29dot97;
-        static const int k50;
-        static const int k59dot94;
-        static const int kMax;
+    static const int k24;
+    static const int k25;
+    static const int k30;
+    static const int k60;
+    static const int k23dot98;
+    static const int k29dot97;
+    static const int k50;
+    static const int k59dot94;
+    static const int kMax;
 
-	//static const FrameRate & getInstance(int id);
-	//static const FrameRate & getInstance (const std::string &name);
-
-	//FrameRate(float value);
-	//FrameRate(int id);
-	virtual ~FrameRate();
-        };
+    int getId() const
+    {
+        return impl->getId();
+    }
+    };
 }
-//namespace device{
-
-//	typedef int _SafetyCheck[(dsUTL_DIM(_values) == dsVIDEO_FRAMERATE_MAX) ? 1 : -1];
-//	typedef int _SafetyCheck[(dsUTL_DIM(_names) == dsVIDEO_FRAMERATE_MAX) ? 1 : -1];
-
-//        static const int kUknown;
-//	FrameRate k24 =(FrameRate)dsVIDEO_FRAMERATE_24;
-/*        static const int k25;
-        static const int k30;
-        static const int k60;
-        static const int k23dot98;
-        static const int k29dot97;
-        static const int k50;
-        static const int k59dot94;
-        static const int kMax;
-*/
-	/*const FrameRate & FrameRate::getInstance(int id)
-	{
-//		if(::isValid(id)){
-			return VideoResolution::getInstance().getFrameRate(id);
-//		}
-	}*/
-	
-//}
-
 
 namespace device {
 
@@ -876,6 +875,18 @@ public:
 
 class VideoOutputPortType {
 public:
+
+    static const int kRF;
+    static const int kBaseband;
+    static const int kSVideo;
+    static const int k1394;
+    static const int kDVI;
+    static const int kComponent;
+    static const int kHDMI;
+    static const int kInternal;
+    static const int kScart;
+    static const int kMax;
+
     VideoOutputPortTypeImpl* impl;
 
     int getId() const
@@ -993,7 +1004,7 @@ public:
     {
         return impl->isContentProtected();
     }
-Display getDisplay()
+    Display getDisplay()
     {
         return impl->getDisplay();
     }
@@ -1222,26 +1233,15 @@ struct edid_data_t {
         edid_res_t res;
         uint32_t colorimetry_info;
     };
-class edid_parserImpl {
-public:
-    virtual ~edid_parserImpl() = default;
-    virtual edid_status_e EDID_Verify(unsigned char* edidbytes, size_t count) = 0;
-    virtual edid_status_e EDID_Parse(unsigned char* edidbytes, size_t count, edid_data_t* data_ptr) = 0;
-};
 
-/*lass edid_parser{
-
-     edid_parserImpl* impl;
-     edid_status_e EDID_Verify(unsigned char* edidbytes, size_t count)
+    inline edid_status_e EDID_Verify(unsigned char* edidbytes, size_t count)
     {
-	    //edid_parser::edid_parserImpl* impl;
-            return impl->EDID_Verify(edidbytes, count);
+        return EDID_STATUS_OK;
     }
-     edid_status_e EDID_Parse(unsigned char* edidbytes, size_t count, edid_data_t* data_ptr)
+    
+    inline edid_status_e EDID_Parse(unsigned char* edidbytes, size_t count, edid_data_t* data_ptr)
     {
-	    //edid_parser::edid_parserImpl* impl;
-            return impl->EDID_Verify(edidbytes, count, data_ptr);
+        return EDID_STATUS_OK; 
     }
-//};*/
 
 }
