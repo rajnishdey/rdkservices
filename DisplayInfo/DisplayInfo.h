@@ -24,6 +24,9 @@
 #include <interfaces/json/JGraphicsProperties.h>
 #include <interfaces/json/JConnectionProperties.h>
 #include <interfaces/json/JHDRProperties.h>
+
+#include <interfaces/json/JsonData_HDRProperties.h>
+
 #include <interfaces/json/JDisplayProperties.h>
 #include <interfaces/IConfiguration.h>
 

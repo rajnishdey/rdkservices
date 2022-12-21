@@ -2,7 +2,7 @@
 
 #include <gmock/gmock.h>
 
-#include "hdmiIn.hpp"
+#include "devicesettings.h"
 
 class HdmiInputImplMock : public device::HdmiInputImpl {
 public:

@@ -53,6 +53,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD_REQUIRED YES)
 
 set_source_files_properties(DeviceSettings/PlatformImplementation.cpp PROPERTIES COMPILE_FLAGS "-fexceptions")
+set_source_files_properties(DeviceSettings/Broadcom/SoC_abstraction.cpp PROPERTIES COMPILE_FLAGS "-fexceptions")
 
 target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_${PLUGIN_NAME})
 
