@@ -156,6 +156,10 @@ if(PLUGIN_HDMICEC2)
     add_subdirectory(HdmiCec_2)
 endif()
 
+if(PLUGIN_HDMICECSOURCE)
+    add_subdirectory(HdmiCecSource)
+endif()
+
 if(PLUGIN_HDMICECSINK)
     add_subdirectory(HdmiCecSink)
 endif()
@@ -338,6 +342,14 @@ endif()
 
 if(PLUGIN_UNIFIEDCASMANAGEMENT)
     add_subdirectory(UnifiedCASManagement)
+endif()
+
+if(PLUGIN_MEDIAENGINERMF)
+    add_subdirectory(MediaEngineRMF)
+endif()
+
+if(PLUGIN_LEDCONTROL)
+    add_subdirectory(LEDControl)
 endif()
 
 if(WPEFRAMEWORK_CREATE_IPKG_TARGETS)
