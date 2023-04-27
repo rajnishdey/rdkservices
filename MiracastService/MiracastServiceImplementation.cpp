@@ -18,7 +18,7 @@
  */
 
 #include <MiracastServiceImplementation.h>
-#include <MiracastServicePrivate.h>
+#include <MiracastCore.h>
 #include <unistd.h>
 
 using namespace MIRACAST;
@@ -41,7 +41,7 @@ void MiracastServiceImplementation::Destroy(MiracastServiceImplementation *objec
 MiracastServiceImplementation::MiracastServiceImplementation(MiracastServiceNotifier *notifier)
 {
     MIRACASTLOG_VERBOSE("MiracastServiceImplementation::ctor...\n");
-    m_impl = new MiracastPrivate(notifier);
+    m_miracastCore = MiracastCore::getInstance(notifier);
 }
 
 MiracastServiceImplementation::MiracastServiceImplementation()
@@ -51,65 +51,59 @@ MiracastServiceImplementation::MiracastServiceImplementation()
 MiracastServiceImplementation::~MiracastServiceImplementation()
 {
     MIRACASTLOG_VERBOSE("Destructor...\n");
-    delete m_impl;
+    MiracastCore::destroyInstance();
+    m_miracastCore = nullptr;
 }
 
 void MiracastServiceImplementation::setFriendlyName(std::string friendly_name)
 {
-    m_impl->setFriendlyName(friendly_name);
+    m_miracastCore->setFriendlyName(friendly_name);
 }
 
 std::string MiracastServiceImplementation::getFriendlyName(void)
 {
-    return m_impl->getFriendlyName();
+    return m_miracastCore->getFriendlyName();
 }
 
 MiracastError MiracastServiceImplementation::startStreaming()
 {
-    return m_impl->startStreaming();
+    return m_miracastCore->startStreaming();
 }
 
 std::string MiracastServiceImplementation::getConnectedMAC()
 {
-    return m_impl->getConnectedMAC();
+    return m_miracastCore->getConnectedMAC();
 }
 
 std::vector<DeviceInfo *> MiracastServiceImplementation::getAllPeers()
 {
-    return m_impl->getAllPeers();
+    return m_miracastCore->getAllPeers();
 }
 
 DeviceInfo *MiracastServiceImplementation::getDeviceDetails(std::string MAC)
 {
-    return m_impl->getDeviceDetails(MAC);
+    return m_miracastCore->getDeviceDetails(MAC);
 }
 
 bool MiracastServiceImplementation::getConnectionStatus()
 {
-    return m_impl->getConnectionStatus();
+    return m_miracastCore->getConnectionStatus();
 }
 
 bool MiracastServiceImplementation::stopStreaming()
 {
-    return m_impl->stopStreaming();
+    return m_miracastCore->stopStreaming();
 }
 
 void MiracastServiceImplementation::Shutdown(void)
 {
-    std::string action_buffer;
-    std::string user_data;
-
-    m_impl->SendMessageToClientReqHandler(MIRACAST_SERVICE_SHUTDOWN, action_buffer, user_data);
+    m_miracastCore->SendMessageToClientReqHandler(MIRACAST_SERVICE_SHUTDOWN);
 }
 
 void MiracastServiceImplementation::setEnable(bool is_enabled)
 {
-    /*@TODO : initialized the varriables*/
-    std::string action_buffer;
-    std::string user_data;
-    size_t action;
-    bool status = true;
-
+    MIRACAST_SERVICE_STATES action;
+ 
     if ( true == is_enabled)
     {
         action = MIRACAST_SERVICE_WFD_START;
@@ -119,14 +113,12 @@ void MiracastServiceImplementation::setEnable(bool is_enabled)
         action = MIRACAST_SERVICE_WFD_STOP;
     }
     /*Check for polimorphism to default value in defination*/
-    m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
+    m_miracastCore->SendMessageToClientReqHandler(action);
 }
 
 void MiracastServiceImplementation::acceptClientConnectionRequest(std::string is_accepted)
 {
-    std::string action_buffer;
-    std::string user_data;
-    size_t action;
+    MIRACAST_SERVICE_STATES action;
 
     if ("Accept" == is_accepted)
     {
@@ -138,17 +130,15 @@ void MiracastServiceImplementation::acceptClientConnectionRequest(std::string is
         MIRACASTLOG_VERBOSE("Client Connection Request Rejected\n");
         action = MIRACAST_SERVICE_REJECT_CLIENT;
     }
-    m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
+    m_miracastCore->SendMessageToClientReqHandler(action);
 }
 
 bool MiracastServiceImplementation::StopClientConnection(std::string mac_address)
 {
-    std::string action_buffer;
-
-    if (0 != (mac_address.compare(m_impl->getConnectedMAC())))
+    if (0 != (mac_address.compare(m_miracastCore->getConnectedMAC())))
     {
         return false;
     }
-    m_impl->SendMessageToClientReqHandler(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, action_buffer, mac_address);
+    m_miracastCore->SendMessageToClientReqHandler(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, mac_address);
     return true;
 }

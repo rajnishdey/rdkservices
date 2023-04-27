@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include "MiracastLogger.h"
-#include "MiracastServicePrivate.h"
+#include "MiracastCore.h"
 #include "MiracastPlayer.h"
 
 MiracastPlayer *MiracastPlayer::mMiracastPlayer{nullptr};
@@ -105,12 +105,9 @@ unsigned getGstPlayFlag(const char *nick)
     return (flag ? flag->value : 0);
 }
 
-bool MiracastPlayer::launch()
+bool MiracastPlayer::launch( std::string localip , std::string streaming_port )
 {
     bool ret = false;
-    MiracastSingleton &miracast_obj = MiracastSingleton::getInstance();
-    std::string localip = miracast_obj.getP2PGOLocalIP();
-    std::string streaming_port = miracast_obj.getStreamingPort();
 
     if (setUri(localip, streaming_port))
     {

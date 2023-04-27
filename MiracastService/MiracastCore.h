@@ -67,12 +67,12 @@ typedef enum rtsp_send_response_code_e
 #define SESSION_MGR_NAME ("MIRA_SESSION_MGR")
 #define SESSION_MGR_STACK (256 * 1024)
 #define SESSION_MGR_MSG_COUNT (5)
-#define SESSION_MGR_MSGQ_SIZE (sizeof(SessionMgrMsg))
+#define SESSION_MGR_MSGQ_SIZE (sizeof(SESSION_MGR_MSG))
 
 #define RTSP_HANDLER_NAME ("MIRA_RTSP_MSG_HLDR")
 #define RTSP_HANDLER_STACK (256 * 1024)
 #define RTSP_HANDLER_MSG_COUNT (2)
-#define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSPHldrMsg))
+#define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSP_HANDLER_MSG))
 
 #define CLIENT_REQ_HANDLER_NAME ("MIRA_CLIENT_REQ_HLDR")
 #define CLIENT_REQ_HANDLER_STACK (256 * 1024)
@@ -99,18 +99,7 @@ typedef enum rtsp_send_response_code_e
 
 #define MIRACAST_DEFAULT_NAME "Miracast-Generic"
 
-#ifdef ENABLE_HDCP2X_SUPPORT
-#define HDCP2X_SOCKET_BUF_MAX 80
-#define HDCP2X_PORT 40001
-#define SA struct sockaddr
-
-#define HDCP2X_AKE_THREAD_NAME "HDCP2X_AKE_HLDR"
-#define HDCP2X_AKE_THREAD_STACK (256 * 1024)
-
-#define RTSP_DFLT_CONTENT_PROTECTION "HDCP2.0 port=40001"
-#else
 #define RTSP_DFLT_CONTENT_PROTECTION "none"
-#endif /*ENABLE_HDCP2X_SUPPORT*/
 #define RTSP_DFLT_VIDEO_FORMATS "00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none"
 #define RTSP_DFLT_AUDIO_FORMATS "AAC 00000007 00"
 #define RTSP_DFLT_TRANSPORT_PROFILE "RTP/AVP/UDP"
@@ -227,26 +216,20 @@ typedef struct session_mgr_msg
 {
     char event_buffer[2048];
     SESSION_MANAGER_ACTIONS action;
-} SessionMgrMsg;
+} SESSION_MGR_MSG;
 
-typedef struct rtsp_hldr_msg
+typedef struct rtsp_handler_msg
 {
     RTSP_MSG_HANDLER_ACTIONS action;
     size_t userdata;
-} RTSPHldrMsg;
+} RTSP_HANDLER_MSG;
 
-typedef struct client_req_ldr_msg
+typedef struct client_req_handler_msg
 {
     char action_buffer[32];
     char buffer_user_data[32];
     CLIENT_MSG_HANDLER_ACTIONS action;
-} ClientReqHldrMsg;
-
-typedef struct common_thread_msg
-{
-    std::string event_data;
-    size_t event_type;
-} CommonThreadMsg;
+} CLIENT_REQ_HANDLER_MSG;
 
 class MiracastRTSPMessages
 {
@@ -375,41 +358,19 @@ private:
     void (*thread_callback)(void *);
 };
 
-class MiracastSingleton
-{
-public:
-    static MiracastSingleton &getInstance()
-    {
-        static MiracastSingleton instance;
-        return instance;
-    }
-
-    std::string getP2PGOLocalIP();
-    std::string getStreamingPort();
-
-private:
-    MiracastSingleton() {}
-    MiracastSingleton(const MiracastSingleton &) = delete;
-    MiracastSingleton &operator=(const MiracastSingleton &) = delete;
-};
-
 class MiracastThread;
 class MiracastRTSPMessages;
 
-/*@TODO: Make singleton class. 
- * Change class name */
-class MiracastPrivate
+class MiracastCore
 {
 public:
-    MiracastPrivate();
-    ~MiracastPrivate();
-    MiracastPrivate(MiracastServiceNotifier *notifier);
-
+    static MiracastCore *getInstance(MiracastServiceNotifier *notifier = nullptr);
+    static void destroyInstance();
+    
     void CommonThreadCallBack(void *args);
 
     // Global APIs
     MiracastError discoverDevices();
-    MiracastError selectDevice();
     MiracastError connectDevice(std::string MAC);
     MiracastError startStreaming();
 
@@ -428,14 +389,16 @@ public:
     /*members for interacting with wpa_supplicant*/
     void p2pCtrlMonitorThread();
 
-    void SendMessageToClientReqHandler(size_t action, std::string action_buffer, std::string user_data);
+    void SendMessageToClientReqHandler(MIRACAST_SERVICE_STATES state = MIRACAST_SERVICE_INVALID_STATE, 
+                                        std::string action_buffer = "", 
+                                        std::string user_data = "");
     // Session Manager
     void SessionManagerThread(void *args);
     // RTSP Message Handler
     void RTSPMessageHandlerThread(void *args);
     // Client Request Handler
     void ClientRequestHandlerThread(void *args);
-    void HDCPTCPServerHandlerThread(void *args);
+
     void DumpBuffer(char *buffer, int length);
 
     RTSP_CTRL_SOCKET_STATES ReceiveBufferTimedOut(int sockfd, void *buffer, size_t buffer_len);
@@ -463,22 +426,25 @@ public:
     std::string getFriendlyName(void);
 
 private:
+    static MiracastCore *mMiracastCore;
+    ~MiracastCore();
+    MiracastCore();
     MiracastError executeCommand(std::string command, int interface, std::string &retBuffer);
     std::string storeData(const char *tmpBuff, const char *lookup_data);
     std::string startDHCPClient(std::string interface, std::string &default_gw_ip_addr);
     bool initiateTCP(std::string goIP);
     bool connectSink();
-    void wfdInit(MiracastServiceNotifier *notifier);
+    void CreateThreadFramework();
+    void wfdInit();
 
     std::string m_friendly_name;
-    MiracastServiceNotifier *m_eventCallback;
+    MiracastServiceNotifier *m_notify_handler;
     vector<DeviceInfo *> m_deviceInfo;
     GroupInfo *m_groupInfo;
     std::string m_authType;
     std::string m_iface;
     bool m_connectionStatus;
     int m_tcpSockfd;
-    int m_hdcptcpSockfd;
 
     /*members for interacting with wpa_supplicant*/
     int p2pInit();
@@ -501,7 +467,6 @@ private:
     MiracastThread *m_client_req_handler_thread;
     MiracastThread *m_session_manager_thread;
     MiracastThread *m_rtsp_msg_handler_thread;
-    MiracastThread *m_hdcp_handler_thread;
 };
 
 #endif

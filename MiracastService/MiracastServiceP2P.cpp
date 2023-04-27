@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include <MiracastServicePrivate.h>
+#include <MiracastCore.h>
 #include <string.h>
 #include <string>
 #include <algorithm>
@@ -32,8 +32,6 @@
 
 using namespace MIRACAST;
 
-static MiracastPrivate *g_miracastPrivate = NULL;
-
 static enum P2P_EVENTS convertIARMtoP2P(IARM_EventId_t eventId)
 {
     return (P2P_EVENTS)eventId;
@@ -43,15 +41,16 @@ static void iarmEvtHandler(const char *owner, IARM_EventId_t eventId, void *data
 {
     if (strcmp(owner, IARM_BUS_NM_SRV_MGR_NAME) == 0)
     {
+        MiracastCore *miracastCoreObj = MiracastCore::getInstance();
         enum P2P_EVENTS p2pEventId = convertIARMtoP2P(eventId);
-        g_miracastPrivate->evtHandler(p2pEventId, data, len);
+        miracastCoreObj->evtHandler(p2pEventId, data, len);
     }
 }
 
 /* The control and monitoring interface is defined and initialized during the init phase */
 void monitor_thread(void *ptr);
 
-int MiracastPrivate::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_iface, char *ret_buf)
+int MiracastCore::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_iface, char *ret_buf)
 {
     int ret;
     size_t buf_len = sizeof(ret_buf);
@@ -78,7 +77,7 @@ int MiracastPrivate::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_
 // Connects to the wpa_supplicant via control interface
 // Gets attached to wpa_supplicant to receiver events
 // Starts the p2p_monitor thread
-int MiracastPrivate::p2pInit()
+int MiracastCore::p2pInit()
 {
     int retry = 0;
     stop_p2p_monitor = false;
@@ -154,13 +153,13 @@ int MiracastPrivate::p2pInit()
 
 void monitor_thread(void *ptr)
 {
-    MiracastPrivate *obj = (MiracastPrivate *)ptr;
+    MiracastCore *obj = (MiracastCore *)ptr;
     obj->p2pCtrlMonitorThread();
 }
 
 // Unintializes WiFi - P2P
 // Safely ends the p2p_monitor thread
-int MiracastPrivate::p2pUninit()
+int MiracastCore::p2pUninit()
 {
     MIRACASTLOG_INFO("WIFI_HAL: Stopping P2P Monitor thread");
 
@@ -185,7 +184,7 @@ int MiracastPrivate::p2pUninit()
 }
 
 /*********Callback thread to send messages to Network Service Manager *********/
-void MiracastPrivate::p2pCtrlMonitorThread()
+void MiracastCore::p2pCtrlMonitorThread()
 {
     bool goStart = false;
     while ((stop_p2p_monitor != true) && (wpa_p2p_ctrl_monitor != NULL))
@@ -281,7 +280,7 @@ void MiracastPrivate::p2pCtrlMonitorThread()
     MIRACASTLOG_INFO("Exiting ctrl monitor thread");
 }
 
-int MiracastPrivate::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
+int MiracastCore::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 {
     int ret;
     MIRACASTLOG_INFO("WIFI_HAL: Command to execute - %s", cmd);
@@ -293,7 +292,7 @@ int MiracastPrivate::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
     return ret;
 }
 
-MiracastError MiracastPrivate::executeCommand(std::string command, int interface, std::string &retBuffer)
+MiracastError MiracastCore::executeCommand(std::string command, int interface, std::string &retBuffer)
 {
     MIRACASTLOG_INFO("Executing P2P command %s", command.c_str());
     if (m_isIARMEnabled)
@@ -322,7 +321,7 @@ MiracastError MiracastPrivate::executeCommand(std::string command, int interface
     return MIRACAST_OK;
 }
 
-void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
+void MiracastCore::wfdInit(void)
 {
     if (getenv("ENABLE_MIRACAST_IARM") != NULL)
         m_isIARMEnabled = true;
@@ -341,7 +340,6 @@ void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
         IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, (IARM_Bus_NMgr_P2P_EventId_t)IARM_BUS_WIFI_P2P_EVENT_onDeviceLost, iarmEvtHandler);
         IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, (IARM_Bus_NMgr_P2P_EventId_t)IARM_BUS_WIFI_P2P_EVENT_onGroupRemoved, iarmEvtHandler);
         IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, (IARM_Bus_NMgr_P2P_EventId_t)IARM_BUS_WIFI_P2P_EVENT_onError, iarmEvtHandler);
-        g_miracastPrivate = this;
     }
     else
     {
@@ -351,7 +349,6 @@ void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
             MIRACASTLOG_INFO("P2P Init succeeded");
     }
 
-    m_eventCallback = notifier;
 #if 0
     std::string command, retBuffer;
     command = "STATUS";
@@ -373,7 +370,7 @@ void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
 #endif
 }
 
-void MiracastPrivate::setWiFiDisplayParams(void)
+void MiracastCore::setWiFiDisplayParams(void)
 {
     if (false == m_isWiFiDisplayParamsEnabled)
     {
@@ -400,12 +397,12 @@ void MiracastPrivate::setWiFiDisplayParams(void)
     }
 }
 
-void MiracastPrivate::resetWiFiDisplayParams(void)
+void MiracastCore::resetWiFiDisplayParams(void)
 {
     m_isWiFiDisplayParamsEnabled = false;
 }
 
-void MiracastPrivate::applyWFDSinkDeviceName(void)
+void MiracastCore::applyWFDSinkDeviceName(void)
 {
     std::string command, retBuffer;
     command = "SET device_name " + getFriendlyName();
