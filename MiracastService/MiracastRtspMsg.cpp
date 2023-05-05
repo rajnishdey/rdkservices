@@ -17,8 +17,18 @@
  * limitations under the License.
  */
 
-#include "MiracastRtspMsg.h"
-#include <MiracastLogger.h>
+#include <MiracastRtspMsg.h>
+
+#define SOCKET_WAIT_TIMEOUT_IN_MILLISEC (30 * ONE_SECOND_PER_MILLISEC)
+
+MiracastRTSPMsg *MiracastRTSPMsg::m_rtsp_msg_obj{nullptr};
+static std::string empty_string = "";
+
+void RTSPMsgHandlerCallback(void *args);
+
+#ifdef ENABLE_HDCP2X_SUPPORT
+void HDCPHandlerCallback(void *args);
+#endif
 
 RTSP_MSG_TEMPLATE_INFO MiracastRTSPMsg::rtsp_msg_template_info[] = {
     {RTSP_MSG_FMT_M1_RESPONSE, "RTSP/1.0 200 OK\r\nPublic: \"%s, GET_PARAMETER, SET_PARAMETER\"\r\nCSeq: %s\r\n\r\n"},
@@ -34,9 +44,36 @@ RTSP_MSG_TEMPLATE_INFO MiracastRTSPMsg::rtsp_msg_template_info[] = {
     {RTSP_MSG_FMT_TEARDOWN_REQUEST, "TEARDOWN %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n"},
     {RTSP_MSG_FMT_TEARDOWN_RESPONSE, "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n"}};
 
+MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastThread *controller_thread_id)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    if (nullptr == m_rtsp_msg_obj)
+    {
+        m_rtsp_msg_obj = new MiracastRTSPMsg();
+        if (nullptr != m_rtsp_msg_obj)
+        {
+            m_rtsp_msg_obj->m_controller_thread = controller_thread_id;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return m_rtsp_msg_obj;
+}
+
+void MiracastRTSPMsg::destroyInstance()
+{
+    MIRACASTLOG_TRACE("Entering...");
+    if (nullptr != m_rtsp_msg_obj)
+    {
+        delete m_rtsp_msg_obj;
+        m_rtsp_msg_obj = nullptr;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
 MiracastRTSPMsg::MiracastRTSPMsg()
 {
     MIRACASTLOG_TRACE("Entering...");
+    m_tcpSockfd = -1;
     std::string default_configuration;
 
     m_current_sequence_number.clear();
@@ -60,6 +97,10 @@ MiracastRTSPMsg::MiracastRTSPMsg()
 
     default_configuration = RTSP_DFLT_CLIENT_RTP_PORTS;
     set_WFDClientRTPPorts(default_configuration);
+
+    m_rtsp_msg_handler_thread = new MiracastThread(RTSP_HANDLER_THREAD_NAME, RTSP_HANDLER_THREAD_STACK, RTSP_HANDLER_MSG_COUNT, RTSP_HANDLER_MSGQ_SIZE, reinterpret_cast<void (*)(void *)>(&RTSPMsgHandlerCallback), this);
+    m_rtsp_msg_handler_thread->start();
+
     MIRACASTLOG_TRACE("Exiting...");
 }
 MiracastRTSPMsg::~MiracastRTSPMsg()
@@ -387,3 +428,868 @@ void MiracastRTSPMsg::reset_WFDSourceName(void)
 {
     m_connected_device_name.clear();
 }
+
+/*
+ * Wait for data returned by the socket for specified time
+ */
+bool MiracastRTSPMsg::wait_data_timeout(int m_Sockfd, unsigned ms)
+{
+    struct timeval timeout = {0};
+    fd_set readFDSet;
+
+    FD_ZERO(&readFDSet);
+    FD_SET(m_Sockfd, &readFDSet);
+
+    timeout.tv_sec = (ms / 1000);
+    timeout.tv_usec = ((ms % 1000) * 1000);
+
+    if (select(m_Sockfd + 1, &readFDSet, nullptr, nullptr, &timeout) > 0)
+    {
+        return FD_ISSET(m_Sockfd, &readFDSet);
+    }
+    return false;
+}
+
+RTSP_STATUS MiracastRTSPMsg::receive_buffer_timedOut(int socket_fd, void *buffer, size_t buffer_len)
+{
+    int recv_return = -1;
+    RTSP_STATUS status = RTSP_MSG_SUCCESS;
+
+    if (!wait_data_timeout(socket_fd, SOCKET_WAIT_TIMEOUT_IN_MILLISEC))
+    {
+        return RTSP_TIMEDOUT;
+    }
+    else
+    {
+        recv_return = recv(socket_fd, buffer, buffer_len, 0);
+    }
+
+    if (recv_return <= 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            MIRACASTLOG_ERROR("error: recv timed out\n");
+            status = RTSP_TIMEDOUT;
+        }
+        else
+        {
+            MIRACASTLOG_ERROR("error: recv failed, or connection closed\n");
+            status = RTSP_MSG_FAILURE;
+        }
+    }
+    MIRACASTLOG_INFO("received string(%d) - %s\n", recv_return, buffer);
+    return status;
+}
+
+MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    MiracastError ret = MIRACAST_FAIL;
+    int r, i, num_ready = 0;
+    size_t addr_size = 0;
+    struct epoll_event events[MAX_EPOLL_EVENTS];
+    struct sockaddr_in addr = {0};
+    struct sockaddr_storage str_addr = {0};
+
+    system("iptables -I INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
+    system("iptables -I OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(7236);
+
+    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
+
+    if (r != 1)
+    {
+        MIRACASTLOG_ERROR("inet_issue");
+        return MIRACAST_FAIL;
+    }
+
+    memcpy(&str_addr, &addr, sizeof(addr));
+    addr_size = sizeof(addr);
+
+    struct sockaddr_storage in_addr = str_addr;
+
+    m_tcpSockfd = socket(in_addr.ss_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (m_tcpSockfd < 0)
+    {
+        MIRACASTLOG_ERROR("TCP Socket creation error %s", strerror(errno));
+        return MIRACAST_FAIL;
+    }
+
+    /*---Add socket to epoll---*/
+    int epfd = epoll_create(1);
+    struct epoll_event event;
+    event.events = EPOLLIN | EPOLLOUT;
+    event.data.fd = m_tcpSockfd;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, m_tcpSockfd, &event);
+
+    fcntl(m_tcpSockfd, F_SETFL, O_NONBLOCK);
+    MIRACASTLOG_INFO("NON_BLOCKING Socket Enabled...\n");
+
+    r = connect(m_tcpSockfd, (struct sockaddr *)&in_addr, addr_size);
+    if (r < 0)
+    {
+        if (errno != EINPROGRESS)
+        {
+            MIRACASTLOG_INFO("Event %s received(%d)", strerror(errno), errno);
+        }
+        else
+        {
+            // connection in progress
+            if (!wait_data_timeout(m_tcpSockfd, SOCKET_WAIT_TIMEOUT_IN_MILLISEC))
+            {
+                // connection timed out or failed
+                MIRACASTLOG_INFO("Socket Connection Timedout ...\n");
+            }
+            else
+            {
+                // connection successful
+                // do something with the connected socket
+                MIRACASTLOG_INFO("Socket Connected Successfully ...\n");
+                ret = MIRACAST_OK;
+            }
+        }
+    }
+    else
+    {
+        MIRACASTLOG_INFO("Socket Connected Successfully ...\n");
+        ret = MIRACAST_OK;
+    }
+
+    /*---Wait for socket connect to complete---*/
+    num_ready = epoll_wait(epfd, events, MAX_EPOLL_EVENTS, 1000 /*timeout*/);
+    for (i = 0; i < num_ready; i++)
+    {
+        if (events[i].events & EPOLLOUT)
+        {
+            MIRACASTLOG_INFO("Socket(%d) %d connected (EPOLLOUT)", i, events[i].data.fd);
+        }
+    }
+
+    num_ready = epoll_wait(epfd, events, MAX_EPOLL_EVENTS, 1000 /*timeout*/);
+    for (i = 0; i < num_ready; i++)
+    {
+        if (events[i].events & EPOLLOUT)
+        {
+            MIRACASTLOG_INFO("Socket %d got some data via EPOLLOUT", events[i].data.fd);
+            return ret;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}
+
+RTSP_STATUS MiracastRTSPMsg::send_rstp_msg(int socket_fd, std::string rtsp_response_buffer)
+{
+    int read_ret = 0;
+    read_ret = send(socket_fd, rtsp_response_buffer.c_str(), rtsp_response_buffer.length(), 0);
+
+    if (0 > read_ret)
+    {
+        MIRACASTLOG_INFO("Send Failed (%d)%s", errno, strerror(errno));
+        return RTSP_MSG_FAILURE;
+    }
+
+    MIRACASTLOG_INFO("Sending the RTSP response %d Data[%s]\n", read_ret, rtsp_response_buffer.c_str());
+    return RTSP_MSG_SUCCESS;
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    size_t found = rtsp_m1_msg_buffer.find(RTSP_REQ_OPTIONS);
+    MIRACASTLOG_TRACE("Entering...");
+    MIRACASTLOG_INFO("M1 request received");
+    if (found != std::string::npos)
+    {
+        std::string m1_msg_resp_sink2src = "";
+        MIRACASTLOG_INFO("M1 OPTIONS packet received");
+        std::stringstream ss(rtsp_m1_msg_buffer);
+        std::string prefix = "";
+        std::string req_str;
+        std::string seq_str;
+        std::string line;
+
+        while (std::getline(ss, line))
+        {
+            if (line.find(RTSP_STD_REQUIRE_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_STD_REQUIRE_FIELD;
+                req_str = line.substr(prefix.length());
+                REMOVE_R(req_str);
+                REMOVE_N(req_str);
+            }
+            else if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_STD_SEQUENCE_FIELD;
+                seq_str = line.substr(prefix.length());
+                REMOVE_R(seq_str);
+                REMOVE_N(seq_str);
+            }
+        }
+
+        m1_msg_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M1_RESPONSE, seq_str, req_str);
+
+        MIRACASTLOG_INFO("Sending the M1 response \n-%s", m1_msg_resp_sink2src.c_str());
+
+        status_code = send_rstp_msg(m_tcpSockfd, m1_msg_resp_sink2src);
+
+        if (RTSP_MSG_SUCCESS == status_code)
+        {
+            std::string m2_msg_req_sink2src = "";
+            MIRACASTLOG_INFO("M1 response sent\n");
+
+            m2_msg_req_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M2_REQUEST, empty_string, req_str);
+
+            MIRACASTLOG_INFO("%s", m2_msg_req_sink2src.c_str());
+            MIRACASTLOG_INFO("Sending the M2 request \n");
+            status_code = send_rstp_msg(m_tcpSockfd, m2_msg_req_sink2src);
+            if (RTSP_MSG_SUCCESS == status_code)
+            {
+                MIRACASTLOG_INFO("M2 request sent\n");
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("M2 request failed\n");
+            }
+        }
+        else
+        {
+            MIRACASTLOG_ERROR("M1 Response failed\n");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return (status_code);
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer)
+{
+    // Yet to check and validate the response
+    return RTSP_MSG_SUCCESS;
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    MIRACASTLOG_TRACE("Entering...");
+    MIRACASTLOG_INFO("M3 request received");
+
+    if (rtsp_m3_msg_buffer.find("wfd_video_formats") != std::string::npos)
+    {
+        std::string m3_msg_resp_sink2src = "";
+        std::string seq_str = "";
+        std::stringstream ss(rtsp_m3_msg_buffer);
+        std::string prefix = "";
+        std::string line;
+
+        while (std::getline(ss, line))
+        {
+            if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_STD_SEQUENCE_FIELD;
+                seq_str = line.substr(prefix.length());
+                REMOVE_R(seq_str);
+                REMOVE_N(seq_str);
+                break;
+            }
+        }
+
+        std::string content_buffer;
+
+        m3_msg_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M3_RESPONSE, seq_str, empty_string);
+
+        MIRACASTLOG_INFO("%s", m3_msg_resp_sink2src.c_str());
+
+        status_code = send_rstp_msg(m_tcpSockfd, m3_msg_resp_sink2src);
+
+        if (RTSP_MSG_SUCCESS == status_code)
+        {
+            MIRACASTLOG_INFO("Sending the M3 response \n");
+        }
+        else
+        {
+            MIRACASTLOG_ERROR("Sending the M3 response Failed\n");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return (status_code);
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    MIRACASTLOG_TRACE("Entering...");
+    if (rtsp_m4_msg_buffer.find("SET_PARAMETER") != std::string::npos)
+    {
+        std::string m4_msg_resp_sink2src = "";
+        std::string seq_str = "";
+        std::string url = "";
+        std::stringstream ss(rtsp_m4_msg_buffer);
+        std::string prefix = "";
+        std::string line;
+
+        while (std::getline(ss, line))
+        {
+            if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_STD_SEQUENCE_FIELD;
+                seq_str = line.substr(prefix.length());
+                REMOVE_R(seq_str);
+                REMOVE_N(seq_str);
+            }
+            else if (line.find(RTSP_WFD_PRESENTATION_URL_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_WFD_PRESENTATION_URL_FIELD;
+                std::size_t url_start_pos = line.find(prefix) + prefix.length();
+                std::size_t url_end_pos = line.find(RTSP_SPACE_STR, url_start_pos);
+                url = line.substr(url_start_pos, url_end_pos - url_start_pos);
+                set_WFDPresentationURL(url);
+            }
+        }
+
+        m4_msg_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M4_RESPONSE, seq_str, empty_string);
+
+        MIRACASTLOG_INFO("Sending the M4 response \n");
+        status_code = send_rstp_msg(m_tcpSockfd, m4_msg_resp_sink2src);
+        if (RTSP_MSG_SUCCESS == status_code)
+        {
+            MIRACASTLOG_INFO("M4 response sent\n");
+        }
+        else
+        {
+            MIRACASTLOG_INFO("Failed to sent M4 response\n");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return (status_code);
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    MIRACASTLOG_TRACE("Entering...");
+    if (rtsp_m5_msg_buffer.find("wfd_trigger_method: SETUP") != std::string::npos)
+    {
+        std::string m5_msg_resp_sink2src = "";
+        std::string seq_str = "";
+        std::stringstream ss(rtsp_m5_msg_buffer);
+        std::string prefix = "";
+        std::string line;
+
+        while (std::getline(ss, line))
+        {
+            if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos)
+            {
+                prefix = RTSP_STD_SEQUENCE_FIELD;
+                seq_str = line.substr(prefix.length());
+                REMOVE_R(seq_str);
+                REMOVE_N(seq_str);
+                break;
+            }
+        }
+
+        m5_msg_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M5_RESPONSE, seq_str, empty_string);
+
+        MIRACASTLOG_INFO("Sending the M5 response \n");
+        status_code = send_rstp_msg(m_tcpSockfd, m5_msg_resp_sink2src);
+        if (RTSP_MSG_SUCCESS == status_code)
+        {
+            std::string m6_msg_req_sink2src = "";
+            MIRACASTLOG_INFO("M5 Response has sent\n");
+
+            m6_msg_req_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M6_REQUEST, seq_str, empty_string);
+
+            MIRACASTLOG_INFO("Sending the M6 Request\n");
+            status_code = send_rstp_msg(m_tcpSockfd, m6_msg_req_sink2src);
+            if (RTSP_MSG_SUCCESS == status_code)
+            {
+                MIRACASTLOG_INFO("M6 Request has sent\n");
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("Failed to Send the M6 Request\n");
+            }
+        }
+        else
+        {
+            MIRACASTLOG_ERROR("Failed to Send the M5 response\n");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return (status_code);
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    MIRACASTLOG_TRACE("Entering...");
+    if (!rtsp_m6_ack_buffer.empty())
+    {
+        size_t pos_ses = rtsp_m6_ack_buffer.find(RTSP_STD_SESSION_FIELD);
+        std::string session = rtsp_m6_ack_buffer.substr(pos_ses + strlen(RTSP_STD_SESSION_FIELD));
+        pos_ses = session.find(";");
+        std::string session_number = session.substr(0, pos_ses);
+
+        set_WFDSessionNumber(session_number);
+
+        if (rtsp_m6_ack_buffer.find("client_port") != std::string::npos)
+        {
+            std::string m7_msg_req_sink2src = "";
+
+            m7_msg_req_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M7_REQUEST, empty_string, empty_string);
+
+            MIRACASTLOG_INFO("Sending the M7 Request\n");
+            status_code = send_rstp_msg(m_tcpSockfd, m7_msg_req_sink2src);
+            if (RTSP_MSG_SUCCESS == status_code)
+            {
+                MIRACASTLOG_INFO("M7 Request has sent\n");
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("Failed to Send the M7 Request\n");
+            }
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return (status_code);
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer)
+{
+    MIRACASTLOG_TRACE("Entering and Exiting...");
+    // Yet to check and validate the M7 acknowledgement
+    return RTSP_MSG_SUCCESS;
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    RTSP_STATUS sub_status_code = RTSP_MSG_SUCCESS;
+    std::string rtsp_resp_sink2src = "";
+    std::string seq_str = "";
+    std::stringstream ss(rtsp_post_m1_m7_xchange_buffer);
+    std::string prefix = "";
+    std::string line;
+
+    while (std::getline(ss, line))
+    {
+        if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos)
+        {
+            prefix = RTSP_STD_SEQUENCE_FIELD;
+            seq_str = line.substr(prefix.length());
+            REMOVE_R(seq_str);
+            REMOVE_N(seq_str);
+            break;
+        }
+    }
+
+    if (rtsp_post_m1_m7_xchange_buffer.find(RTSP_M16_REQUEST_MSG) != std::string::npos)
+    {
+        rtsp_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_M16_RESPONSE, seq_str, empty_string);
+    }
+    else if (rtsp_post_m1_m7_xchange_buffer.find(RTSP_REQ_TEARDOWN_MODE) != std::string::npos)
+    {
+        MIRACASTLOG_INFO("TEARDOWN request from Source received\n");
+        rtsp_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_TEARDOWN_RESPONSE, seq_str, empty_string);
+        sub_status_code = RTSP_MSG_TEARDOWN_REQUEST;
+    }
+
+    if (!(rtsp_resp_sink2src.empty()))
+    {
+        MIRACASTLOG_INFO("Sending the Response \n");
+        status_code = send_rstp_msg(m_tcpSockfd, rtsp_resp_sink2src);
+        if (RTSP_MSG_SUCCESS == status_code)
+        {
+            status_code = sub_status_code;
+            MIRACASTLOG_INFO("Response sent\n");
+        }
+        else
+        {
+            MIRACASTLOG_INFO("Failed to sent Response\n");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return status_code;
+}
+
+RTSP_STATUS MiracastRTSPMsg::rtsp_sink2src_request_msg_handling(eCONTROLLER_FW_STATES action_id)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    RTSP_MSG_FMT_SINK2SRC request_mode = RTSP_MSG_FMT_INVALID;
+    RTSP_STATUS status_code = RTSP_MSG_SUCCESS;
+
+    switch (action_id)
+    {
+        case RTSP_TEARDOWN_FROM_SINK2SRC:
+        {
+            request_mode = RTSP_MSG_FMT_TEARDOWN_REQUEST;
+        }
+        break;
+        case RTSP_PLAY_FROM_SINK2SRC:
+        {
+            request_mode = RTSP_MSG_FMT_PLAY_REQUEST;
+        }
+        break;
+        case RTSP_PAUSE_FROM_SINK2SRC:
+        {
+            request_mode = RTSP_MSG_FMT_PAUSE_REQUEST;
+        }
+        break;
+        default:
+        {
+            //
+        }
+        break;
+    }
+
+    if (RTSP_MSG_FMT_INVALID != request_mode)
+    {
+        std::string rtsp_resp_sink2src;
+        rtsp_resp_sink2src = generate_request_response_msg(RTSP_MSG_FMT_TEARDOWN_RESPONSE, empty_string, empty_string);
+
+        if (!(rtsp_resp_sink2src.empty()))
+        {
+            MIRACASTLOG_INFO("Sending the [PLAY/PAUSE/TEARDOWN] REQUEST \n");
+            status_code = send_rstp_msg(m_tcpSockfd, rtsp_resp_sink2src);
+            if (RTSP_MSG_SUCCESS == status_code)
+            {
+                MIRACASTLOG_INFO("[PLAY/PAUSE/TEARDOWN] sent\n");
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("Failed to sent PLAY/PAUSE\n");
+            }
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return status_code;
+}
+
+RTSP_STATUS MiracastRTSPMsg::validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, eCONTROLLER_FW_STATES action_id)
+{
+    RTSP_STATUS status_code = RTSP_INVALID_MSG_RECEIVED;
+    MIRACASTLOG_TRACE("Entering...");
+    switch (action_id)
+    {
+    case RTSP_M1_REQUEST_RECEIVED:
+    {
+        status_code = validate_rtsp_m1_msg_m2_send_request(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M2_REQUEST_ACK:
+    {
+        status_code = validate_rtsp_m2_request_ack(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M3_REQUEST_RECEIVED:
+    {
+        status_code = validate_rtsp_m3_response_back(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M4_REQUEST_RECEIVED:
+    {
+        status_code = validate_rtsp_m4_response_back(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M5_REQUEST_RECEIVED:
+    {
+        status_code = validate_rtsp_m5_msg_m6_send_request(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M6_REQUEST_ACK:
+    {
+        status_code = validate_rtsp_m6_ack_m7_send_request(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_M7_REQUEST_ACK:
+    {
+        status_code = validate_rtsp_m7_request_ack(rtsp_msg_buffer);
+    }
+    break;
+    case RTSP_MSG_POST_M1_M7_XCHANGE:
+    {
+        status_code = validate_rtsp_post_m1_m7_xchange(rtsp_msg_buffer);
+    }
+    break;
+    default:
+    {
+        //
+    }
+    }
+    MIRACASTLOG_INFO("Validating RTSP Msg => ACTION[%#04X] Resp[%#04X]\n", action_id, status_code);
+    MIRACASTLOG_TRACE("Exiting...");
+    return status_code;
+}
+
+void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
+{
+    char rtsp_message_socket[4096] = {0};
+    RTSP_HLDR_MSGQ_STRUCT rtsp_message_data = {};
+    eCONTROLLER_FW_STATES controller_state = CONTROLLER_INVALID_STATE;
+    RTSP_STATUS status_code = RTSP_TIMEDOUT;
+    std::string socket_buffer;
+    bool start_monitor_keep_alive_msg = false;
+    bool rtsp_msg_hldr_running_state = true;
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    while (true == rtsp_msg_hldr_running_state)
+    {
+        MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+        m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), THREAD_RECV_MSG_INDEFINITE_WAIT);
+
+        MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+
+        if (RTSP_SELF_ABORT == rtsp_message_data.state)
+        {
+            MIRACASTLOG_TRACE("RTSP_SELF_ABORT ACTION Received\n");
+            rtsp_msg_hldr_running_state = false;
+            continue;
+        }
+
+        if (RTSP_START_RECEIVE_MSGS != rtsp_message_data.state)
+        {
+            continue;
+        }
+        rtsp_message_data.state = RTSP_M1_REQUEST_RECEIVED;
+
+        memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
+
+        while (RTSP_MSG_SUCCESS == receive_buffer_timedOut(m_tcpSockfd, rtsp_message_socket, sizeof(rtsp_message_socket)))
+        {
+            socket_buffer.clear();
+            socket_buffer = rtsp_message_socket;
+
+            status_code = validate_rtsp_msg_response_back(socket_buffer, rtsp_message_data.state);
+
+            MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_message_data.state, status_code);
+
+            if ((RTSP_MSG_SUCCESS != status_code) || (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
+            {
+                break;
+            }
+            memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
+            rtsp_message_data.state = static_cast<eCONTROLLER_FW_STATES>(rtsp_message_data.state + 1);
+        }
+
+        start_monitor_keep_alive_msg = false;
+
+        if ((RTSP_MSG_SUCCESS == status_code) && (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
+        {
+            controller_state = CONTROLLER_RTSP_MSG_RECEIVED_PROPERLY;
+            start_monitor_keep_alive_msg = true;
+        }
+        else if (RTSP_INVALID_MSG_RECEIVED == status_code)
+        {
+            controller_state = CONTROLLER_RTSP_INVALID_MESSAGE;
+        }
+        else if (RTSP_MSG_FAILURE == status_code)
+        {
+            controller_state = CONTROLLER_RTSP_SEND_REQ_RESP_FAILED;
+        }
+        else
+        {
+            controller_state = CONTROLLER_RTSP_MSG_TIMEDOUT;
+        }
+        MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", controller_state);
+        send_msgto_controller_thread(controller_state);
+
+        if (CONTROLLER_RTSP_MSG_RECEIVED_PROPERLY != controller_state)
+        {
+            continue;
+        }
+
+        RTSP_STATUS socket_state;
+
+        while (true == start_monitor_keep_alive_msg)
+        {
+            memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
+            socket_state = receive_buffer_timedOut(m_tcpSockfd, rtsp_message_socket, sizeof(rtsp_message_socket));
+            if (RTSP_MSG_SUCCESS == socket_state)
+            {
+                socket_buffer.clear();
+                socket_buffer = rtsp_message_socket;
+                MIRACASTLOG_TRACE("\n #### RTSP Message [%s] #### \n", socket_buffer.c_str());
+
+                status_code = validate_rtsp_msg_response_back(socket_buffer, RTSP_MSG_POST_M1_M7_XCHANGE);
+
+                MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_message_data.state, status_code);
+                if ((RTSP_MSG_TEARDOWN_REQUEST == status_code) ||
+                    ((RTSP_MSG_SUCCESS != status_code) &&
+                     (RTSP_MSG_TEARDOWN_REQUEST != status_code)))
+                {
+                    MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
+                    send_msgto_controller_thread(CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
+                    break;
+                }
+            }
+            else if (RTSP_MSG_FAILURE == socket_state)
+            {
+                controller_state = CONTROLLER_RTSP_SEND_REQ_RESP_FAILED;
+                break;
+            }
+
+            MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+            if (true == m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), 1))
+            {
+                MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+                switch (rtsp_message_data.state)
+                {
+                    case RTSP_RESTART:
+                    {
+                        MIRACASTLOG_TRACE("[RTSP_RESTART] ACTION Received\n");
+                        start_monitor_keep_alive_msg = false;
+                    }
+                    break;
+                    case RTSP_SELF_ABORT:
+                    case RTSP_PLAY_FROM_SINK2SRC:
+                    case RTSP_PAUSE_FROM_SINK2SRC:
+                    case RTSP_TEARDOWN_FROM_SINK2SRC:
+                    {
+                        if (RTSP_SELF_ABORT == rtsp_message_data.state){
+                            rtsp_message_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
+                            MIRACASTLOG_TRACE("[RTSP_SELF_ABORT] Received\n");
+                            rtsp_msg_hldr_running_state = false;
+                        }
+                        else{
+                            MIRACASTLOG_TRACE("[RTSP_PLAY/RTSP_PAUSE/RTSP_TEARDOWN] ACTION Received\n");
+                        }
+                        if ((RTSP_MSG_FAILURE == rtsp_sink2src_request_msg_handling(rtsp_message_data.state) ||
+                            (RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state)))
+                        {
+                            start_monitor_keep_alive_msg = false;
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        //
+                    }
+                    break;
+                }
+            }
+        }
+
+        MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+        if ( true == rtsp_msg_hldr_running_state )
+        {
+            MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_RESTART_DISCOVERING);
+            send_msgto_controller_thread(CONTROLLER_RTSP_RESTART_DISCOVERING);
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastRTSPMsg::send_msgto_controller_thread(eCONTROLLER_FW_STATES state)
+{
+    CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
+    MIRACASTLOG_TRACE("Entering...");
+    controller_msgq_data.state = state;
+    controller_msgq_data.msg_type = RTSP_MSG;
+    m_controller_thread->send_message(&controller_msgq_data, CONTROLLER_MSGQ_SIZE);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastRTSPMsg::send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state)
+{
+    RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {RTSP_INVALID_ACTION,0};
+    MIRACASTLOG_TRACE("Entering...");
+    rtsp_hldr_msgq_data.state = state;
+    m_rtsp_msg_handler_thread->send_message(&rtsp_hldr_msgq_data, RTSP_HANDLER_MSGQ_SIZE);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void RTSPMsgHandlerCallback(void *args)
+{
+    MiracastRTSPMsg *rtsp_msg_obj = (MiracastRTSPMsg *)args;
+    rtsp_msg_obj->RTSPMessageHandler_Thread(nullptr);
+}
+
+#ifdef ENABLE_HDCP2X_SUPPORT
+void MiracastController::DumpBuffer(char *buffer, int length)
+{
+    // Loop through the buffer, printing each byte in hex format
+    std::string hex_string;
+    for (int i = 0; i < length; i++)
+    {
+        char hex_byte[3];
+        snprintf(hex_byte, sizeof(hex_byte), "%02X", (unsigned char)buffer[i]);
+        hex_string += "0x";
+        hex_string += hex_byte;
+        hex_string += " ";
+    }
+    MIRACASTLOG_INFO("\n######### DUMP BUFFER[%u] #########\n%s\n###############################\n", length, hex_string.c_str());
+}
+
+void MiracastController::HDCPTCPServerHandlerThread(void *args)
+{
+    char buff[HDCP2X_SOCKET_BUF_MAX];
+    int sockfd, connfd, len;
+    struct sockaddr_in servaddr, cli;
+
+    // socket create and verification
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1)
+    {
+        MIRACASTLOG_ERROR("socket creation failed...\n");
+    }
+    else
+        MIRACASTLOG_INFO("Socket successfully created..\n");
+    bzero(&servaddr, sizeof(servaddr));
+
+    // assign IP, PORT
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(HDCP2X_PORT);
+
+    // Binding newly created socket to given IP and verification
+    if ((bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0)
+    {
+        MIRACASTLOG_ERROR("socket bind failed...\n");
+    }
+    else
+        MIRACASTLOG_INFO("Socket successfully binded..\n");
+
+    // Now server is ready to listen and verification
+    if ((listen(sockfd, 5)) != 0)
+    {
+        MIRACASTLOG_ERROR("Listen failed...\n");
+    }
+    else
+        MIRACASTLOG_INFO("Server listening..\n");
+    len = sizeof(cli);
+
+    // Accept the data packet from client and verification
+    connfd = accept(sockfd, (SA *)&cli, &len);
+    if (connfd < 0)
+    {
+        MIRACASTLOG_ERROR("server accept failed...\n");
+    }
+    else
+        MIRACASTLOG_INFO("server accept the client...\n");
+
+    while (true)
+    {
+        bzero(buff, HDCP2X_SOCKET_BUF_MAX);
+
+        // read the message from client and copy it in buffer
+        int n = read(connfd, buff, sizeof(buff));
+
+        if (0 < n)
+        {
+            DumpBuffer(buff, n);
+        }
+
+        bzero(buff, HDCP2X_SOCKET_BUF_MAX);
+    }
+}
+
+void HDCPHandlerCallback(void *args)
+{
+    MiracastController *miracast_ctrler_obj = (MiracastController *)args;
+
+    miracast_ctrler_obj->HDCPTCPServerHandlerThread(nullptr);
+}
+#endif /*ENABLE_HDCP2X_SUPPORT*/

@@ -32,10 +32,12 @@ MiracastServiceImplementation *MiracastServiceImplementation::create(MiracastSer
 
 void MiracastServiceImplementation::Destroy(MiracastServiceImplementation *object)
 {
+    MIRACASTLOG_TRACE("Entering...");
     if (object)
     {
         delete object;
     }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 MiracastServiceImplementation::MiracastServiceImplementation(MiracastServiceNotifier *notifier)
@@ -47,18 +49,22 @@ MiracastServiceImplementation::MiracastServiceImplementation(MiracastServiceNoti
 
 MiracastServiceImplementation::MiracastServiceImplementation()
 {
+
 }
 
 MiracastServiceImplementation::~MiracastServiceImplementation()
 {
-    MIRACASTLOG_VERBOSE("Destructor...\n");
+    MIRACASTLOG_TRACE("Entering...");
     MiracastController::destroyInstance();
     m_miracast_obj = nullptr;
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastServiceImplementation::setFriendlyName(std::string friendly_name)
 {
+    MIRACASTLOG_TRACE("Entering...");
     m_miracast_obj->set_FriendlyName(friendly_name);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 std::string MiracastServiceImplementation::getFriendlyName(void)
@@ -98,17 +104,15 @@ bool MiracastServiceImplementation::stopStreaming()
 
 void MiracastServiceImplementation::Shutdown(void)
 {
-    std::string action_buffer;
-    std::string user_data;
-    m_miracast_obj->SendMessageToPluginReqHandlerThread(MIRACAST_SERVICE_SHUTDOWN, action_buffer, user_data);
+    MIRACASTLOG_TRACE("Entering...");
+    m_miracast_obj->send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_SHUTDOWN);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastServiceImplementation::setEnable(bool is_enabled)
 {
-    /*@TODO : initialized the varriables*/
-    std::string action_buffer;
-    std::string user_data;
     size_t action;
+    MIRACASTLOG_TRACE("Entering...");
 
     if ( true == is_enabled)
     {
@@ -118,37 +122,40 @@ void MiracastServiceImplementation::setEnable(bool is_enabled)
     {
         action = MIRACAST_SERVICE_WFD_STOP;
     }
-    /*Check for polimorphism to default value in defination*/
-    m_miracast_obj->SendMessageToPluginReqHandlerThread(action, action_buffer, user_data);
+    m_miracast_obj->send_msg_thunder_msg_hdler_thread(action);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastServiceImplementation::acceptClientConnectionRequest(std::string is_accepted)
 {
-    std::string action_buffer;
-    std::string user_data;
-    size_t action;
+    MIRACAST_SERVICE_STATES state;
+
+    MIRACASTLOG_TRACE("Entering...");
 
     if ("Accept" == is_accepted)
     {
         MIRACASTLOG_VERBOSE("Client Connection Request accepted\n");
-        action = MIRACAST_SERVICE_ACCEPT_CLIENT;
+        state = MIRACAST_SERVICE_ACCEPT_CLIENT;
     }
     else
     {
         MIRACASTLOG_VERBOSE("Client Connection Request Rejected\n");
-        action = MIRACAST_SERVICE_REJECT_CLIENT;
+        state = MIRACAST_SERVICE_REJECT_CLIENT;
     }
-    m_miracast_obj->SendMessageToPluginReqHandlerThread(action, action_buffer, user_data);
+    m_miracast_obj->send_msg_thunder_msg_hdler_thread(state);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 bool MiracastServiceImplementation::StopClientConnection(std::string mac_address)
 {
-    std::string action_buffer;
+    MIRACASTLOG_TRACE("Entering...");
+
     if (0 != (mac_address.compare(m_miracast_obj->get_connected_device_mac())))
     {
+        MIRACASTLOG_TRACE("Exiting...");
         return false;
     }
-    m_miracast_obj->SendMessageToPluginReqHandlerThread(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, action_buffer, mac_address);
-
+    m_miracast_obj->send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, mac_address);
+    MIRACASTLOG_TRACE("Exiting...");
     return true;
 }
