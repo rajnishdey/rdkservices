@@ -37,6 +37,7 @@ MiracastP2P *MiracastP2P::m_miracast_p2p_obj{nullptr};
 
 MiracastP2P::MiracastP2P(void)
 {
+    MIRACASTLOG_TRACE("Entering..");
     m_wpa_p2p_cmd_ctrl_iface = nullptr;
     m_wpa_p2p_ctrl_monitor = nullptr;
     m_stop_p2p_monitor = false;
@@ -47,19 +48,22 @@ MiracastP2P::MiracastP2P(void)
     m_friendly_name = "";
 
     memset(m_event_buffer, '\0', sizeof(m_event_buffer));
+    MIRACASTLOG_TRACE("Exiting..");
 }
 
 MiracastP2P::~MiracastP2P()
 {
-    MIRACASTLOG_INFO("Destructor...");
+    MIRACASTLOG_TRACE("Entering..");
     if ( false == m_isIARMEnabled )
     {
         p2pUninit();
     }
+    MIRACASTLOG_TRACE("Exiting..");
 }
 
 MiracastP2P *MiracastP2P::getInstance(void)
 {
+    MIRACASTLOG_TRACE("Entering..");
     if (nullptr == m_miracast_p2p_obj)
     {
         m_miracast_p2p_obj = new MiracastP2P();
@@ -67,16 +71,19 @@ MiracastP2P *MiracastP2P::getInstance(void)
             m_miracast_p2p_obj->Init();
         }
     }
+    MIRACASTLOG_TRACE("Exiting..");
     return m_miracast_p2p_obj;
 }
 
 void MiracastP2P::destroyInstance()
 {
+    MIRACASTLOG_TRACE("Entering..");
     if (nullptr != m_miracast_p2p_obj)
     {
         delete m_miracast_p2p_obj;
         m_miracast_p2p_obj = nullptr;
     }
+    MIRACASTLOG_TRACE("Existing...");
 }
 
 static P2P_EVENTS convertIARMtoP2P(IARM_EventId_t eventId)
@@ -86,12 +93,14 @@ static P2P_EVENTS convertIARMtoP2P(IARM_EventId_t eventId)
 
 static void iarmEvtHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
+    MIRACASTLOG_TRACE("Entering..");
     if (strcmp(owner, IARM_BUS_NM_SRV_MGR_NAME) == 0)
     {
         P2P_EVENTS p2pEventId = convertIARMtoP2P(eventId);
         MiracastController *miracast_obj = MiracastController::getInstance();
         miracast_obj->event_handler(p2pEventId, data, len,true);
     }
+    MIRACASTLOG_TRACE("Exiting..");
 }
 
 /* The control and monitoring interface is defined and initialized during the init phase */
@@ -101,9 +110,11 @@ int MiracastP2P::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_ifac
 {
     int ret;
     size_t buf_len = sizeof(ret_buf);
+    MIRACASTLOG_TRACE("Entering..");
     if (NULL == wpa_p2p_ctrl_iface)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: Control interface is NULL. ");
+        MIRACASTLOG_TRACE("Exiting...");
         return -1;
     }
 
@@ -117,6 +128,7 @@ int MiracastP2P::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_ifac
     {
         MIRACASTLOG_ERROR("WIFI_HAL: cmd=%s failed ", cmd);
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
 
@@ -146,6 +158,7 @@ int MiracastP2P::p2pInit()
     if (m_wpa_p2p_cmd_ctrl_iface == NULL)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: wpa_ctrl_open for p2p failed for control interface ");
+        MIRACASTLOG_TRACE("Exiting...");
         return RETURN_ERR;
     }
     MIRACASTLOG_INFO("WIFI_HAL: m_wpa_p2p_cmd_ctrl_iface created successfully.");
@@ -154,12 +167,14 @@ int MiracastP2P::p2pInit()
     if (m_wpa_p2p_ctrl_monitor == NULL)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: wpa_ctrl_open for p2p failed for monitor interface ");
+        MIRACASTLOG_TRACE("Exiting...");
         return RETURN_ERR;
     }
     MIRACASTLOG_INFO("WIFI_HAL: m_wpa_p2p_ctrl_monitor created successfully.");
     if (wpa_ctrl_attach(m_wpa_p2p_ctrl_monitor) != 0)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: p2p wpa_ctrl_attach failed ");
+        MIRACASTLOG_TRACE("Exiting...");
         return RETURN_ERR;
     }
     MIRACASTLOG_INFO("WIFI_HAL: m_wpa_p2p_ctrl_monitor attached successfully.");
@@ -170,6 +185,7 @@ int MiracastP2P::p2pInit()
     if (ret != 0)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: P2P Monitor thread creation failed ");
+        MIRACASTLOG_TRACE("Exiting...");
         return RETURN_ERR;
     }
     MIRACASTLOG_TRACE("Exiting..");
@@ -178,8 +194,10 @@ int MiracastP2P::p2pInit()
 
 void p2p_monitor_thread(void *ptr)
 {
+    MIRACASTLOG_TRACE("Entering...");
     MiracastP2P *obj = (MiracastP2P *)ptr;
     obj->p2pCtrlMonitorThread();
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 // Unintializes WiFi - P2P
@@ -191,6 +209,8 @@ int MiracastP2P::p2pUninit()
 
     m_stop_p2p_monitor = true;
     pthread_join(m_p2p_ctrl_monitor_thread_id, NULL);
+
+    stop_discover_devices();
 
     if (NULL!=m_wpa_p2p_cmd_ctrl_iface){
         wpa_ctrl_close(m_wpa_p2p_cmd_ctrl_iface);
@@ -308,8 +328,10 @@ void MiracastP2P::p2pCtrlMonitorThread()
 int MiracastP2P::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 {
     int ret;
+    MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_INFO("WIFI_HAL: Command to execute - %s", cmd);
     ret = p2pWpaCtrlSendCmd(cmd, m_wpa_p2p_cmd_ctrl_iface, ret_buf);
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
 
@@ -328,10 +350,13 @@ MiracastError MiracastP2P::executeCommand(std::string command, int interface, st
         if (retVal == IARM_RESULT_SUCCESS)
         {
             retBuffer = param.return_buffer;
+            MIRACASTLOG_TRACE("Exiting...");
             return MIRACAST_OK;
         }
-        else
+        else{
+            MIRACASTLOG_TRACE("Exiting...");
             return MIRACAST_FAIL;
+        }
     }
     else
     {
@@ -409,7 +434,9 @@ MiracastError MiracastP2P::set_WFDParameters(void)
 
 void MiracastP2P::reset_WFDParameters(void)
 {
+    MIRACASTLOG_TRACE("Entering...");
     m_isWiFiDisplayParamsEnabled = false;
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 MiracastError MiracastP2P::discover_devices(void)

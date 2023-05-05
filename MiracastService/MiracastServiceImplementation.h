@@ -20,52 +20,12 @@
 #ifndef _MIRACAST_SERVICE_H_
 #define _MIRACAST_SERVICE_H_
 
-#include <MiracastServiceError.h>
+#include <MiracastCommon.h>
 #include <string>
 #include <vector>
 
 using namespace std;
 using namespace MIRACAST;
-
-typedef enum miracast_service_states_e
-{
-    MIRACAST_SERVICE_SHUTDOWN = 1,
-    MIRACAST_SERVICE_WFD_START,
-    MIRACAST_SERVICE_WFD_STOP,
-    MIRACAST_SERVICE_ACCEPT_CLIENT,
-    MIRACAST_SERVICE_REJECT_CLIENT,
-    MIRACAST_SERVICE_STOP_CLIENT_CONNECTION
-} MIRACAST_SERVICE_STATES;
-
-enum DEVICEROLE
-{
-    DEVICEROLE_SOURCE = 0,
-    DEVICEROLE_PRIMARY_SINK,
-    DEVICEROLE_SECONDARY_SINK,
-    DEVICEROLE_DUAL_ROLE
-};
-
-typedef struct d_info
-{
-    string deviceMAC;
-    string deviceType;
-    string modelName;
-    bool isCPSupported;
-    enum DEVICEROLE deviceRole;
-} DeviceInfo;
-
-/**
- * Abstract class for Notification.
- */
-using namespace std;
-class MiracastServiceNotifier
-{
-public:
-    virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
-};
 
 class MiracastController;
 

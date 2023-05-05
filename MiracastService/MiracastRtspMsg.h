@@ -20,8 +20,14 @@
 #ifndef _MIRACAST_RSTP_MSG_H_
 #define _MIRACAST_RTSP_MSG_H_
 
-#include <string>
-#include <vector>
+#include <MiracastCommon.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/epoll.h>
+#include <fcntl.h>
+
+#define MAX_EPOLL_EVENTS 64
+#define SOCKET_WAIT_TIMEOUT_IN_MILLISEC (30 * ONE_SECOND_PER_MILLISEC)
 
 typedef enum rtsp_status_e
 {
@@ -32,18 +38,9 @@ typedef enum rtsp_status_e
     RTSP_TIMEDOUT
 } RTSP_STATUS;
 
-#define RTSP_HANDLER_THREAD_NAME ("MIRA_RTSP_MSG_HLDR")
-#define RTSP_HANDLER_THREAD_STACK (256 * 1024)
-#define RTSP_HANDLER_MSG_COUNT (2)
-#define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSP_HLDR_MSG_STRUCT))
-
-#define PLUGIN_REQ_HANDLER_THREAD_NAME ("MIRA_PLUGIN_REQ_HLDR")
-#define PLUGIN_REQ_HANDLER_THREAD_STACK (256 * 1024)
-#define PLUGIN_REQ_HANDLER_MSGQ_SIZE (sizeof(PLUGIN_REQ_HDLR_MSG_STRUCT))
-
 #define RTSP_CRLF_STR "\r\n"
 #define RTSP_DOUBLE_QUOTE_STR "\""
-#define RTSP_SPACE_STR " "
+#define RTSP_SPACE_STR SPACE_CHAR
 #define RTSP_SEMI_COLON_STR ";"
 
 /* It will be used to parse the data from WFD Source */
@@ -92,30 +89,11 @@ typedef struct rtsp_msg_template_info
     const char *template_name;
 } RTSP_MSG_TEMPLATE_INFO;
 
-typedef enum rtsp_msg_handler_actions_e
-{
-    RTSP_M1_REQUEST_RECEIVED = 0x01,
-    RTSP_M2_REQUEST_ACK,
-    RTSP_M3_REQUEST_RECEIVED,
-    RTSP_M4_REQUEST_RECEIVED,
-    RTSP_M5_REQUEST_RECEIVED,
-    RTSP_M6_REQUEST_ACK,
-    RTSP_M7_REQUEST_ACK,
-    RTSP_MSG_POST_M1_M7_XCHANGE,
-    RTSP_START_RECEIVE_MSGS,
-    RTSP_TEARDOWN_FROM_SINK2SRC,
-    RTSP_RESTART,
-    RTSP_PAUSE_FROM_SINK2SRC,
-    RTSP_PLAY_FROM_SINK2SRC,
-    RTSP_SELF_ABORT,
-    RTSP_INVALID_ACTION
-} RTSP_MSG_HANDLER_ACTIONS;
-
 class MiracastRTSPMsg
 {
 public:
-    MiracastRTSPMsg();
-    ~MiracastRTSPMsg();
+    static MiracastRTSPMsg *getInstance(MiracastThread *controller_thread_id = nullptr);
+    static void destroyInstance();
 
     std::string get_WFDVideoFormat(void);
     std::string get_WFDAudioCodecs(void);
@@ -149,16 +127,16 @@ public:
     bool set_WFDEnableDisableUnicast(bool enable_disable_unicast);
     bool set_WFDSessionNumber(std::string session);
 
-    const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
-    std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
-    std::string get_RequestSequenceNumber(void);
-
     void set_WFDSourceMACAddress(std::string MAC_Addr);
     void set_WFDSourceName(std::string device_name);
     std::string get_WFDSourceName(void);
     std::string get_WFDSourceMACAddress(void);
     void reset_WFDSourceMACAddress(void);
     void reset_WFDSourceName(void);
+
+    void send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
+    MiracastError initiate_TCP(std::string goIP);
+    void RTSPMessageHandler_Thread(void *args);
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
     {
@@ -178,6 +156,13 @@ public:
     };
 
 private:
+    static MiracastRTSPMsg *m_rtsp_msg_obj;
+    MiracastRTSPMsg();
+    virtual ~MiracastRTSPMsg();
+    MiracastRTSPMsg &operator=(const MiracastRTSPMsg &) = delete;
+    MiracastRTSPMsg(const MiracastRTSPMsg &) = delete;
+
+    int m_tcpSockfd;
     std::string m_connected_mac_addr;
     std::string m_connected_device_name;
     std::string m_wfd_video_formats;
@@ -197,6 +182,29 @@ private:
     std::string m_wfd_session_number;
     std::string m_current_sequence_number;
     static RTSP_MSG_TEMPLATE_INFO rtsp_msg_template_info[];
+    MiracastThread *m_rtsp_msg_handler_thread;
+    MiracastThread *m_controller_thread;
+
+    void send_msgto_controller_thread(eCONTROLLER_FW_STATES state);
+
+    RTSP_STATUS validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, eCONTROLLER_FW_STATES state);
+    RTSP_STATUS validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer);
+    RTSP_STATUS validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer);
+    RTSP_STATUS validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer);
+    RTSP_STATUS validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer);
+    RTSP_STATUS validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer);
+    RTSP_STATUS validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer);
+    RTSP_STATUS validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer);
+    RTSP_STATUS validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer);
+    RTSP_STATUS rtsp_sink2src_request_msg_handling(eCONTROLLER_FW_STATES state);
+
+    const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
+    std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
+    std::string get_RequestSequenceNumber(void);
+
+    RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len);
+    bool wait_data_timeout(int m_Sockfd, unsigned ms);
+    RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
 };
 
 #endif

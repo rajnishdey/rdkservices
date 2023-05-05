@@ -83,6 +83,7 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_GET_ENABLE, &MiracastService::getEnable, this);
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
+			LOGINFO("Exiting..!!!");
 		}
 
 		MiracastService::~MiracastService()
@@ -93,6 +94,12 @@ namespace WPEFramework
 				delete m_remoteXCastObj;
 				m_remoteXCastObj = nullptr;
 			}
+			Unregister(METHOD_MIRACAST_SET_ENABLE);
+			Unregister(METHOD_MIRACAST_GET_ENABLE);
+			Unregister(METHOD_MIRACAST_STOP_CLIENT_CONNECT);
+			Unregister(METHOD_MIRACAST_CLIENT_CONNECT);
+			LOGINFO("Done..!!!");
+			LOGINFO("Exiting..!!!");
 		}
 
 		// Thunder plugins communication
@@ -103,36 +110,41 @@ namespace WPEFramework
             if(nullptr == m_remoteXCastObj)
             {
 				string token;
-
                 // TODO: use interfaces and remove token
                 auto security = m_CurrentService->QueryInterfaceByCallsign<PluginHost::IAuthenticate>("SecurityAgent");
-                if (nullptr != security) {
+                if (nullptr != security)
+				{
                     string payload = "http://localhost";
-                    if (security->CreateToken(
-                            static_cast<uint16_t>(payload.length()),
-                            reinterpret_cast<const uint8_t*>(payload.c_str()),
-                            token)
-                        == Core::ERROR_NONE) {
+                    if (security->CreateToken( static_cast<uint16_t>(payload.length()),
+											reinterpret_cast<const uint8_t*>(payload.c_str()),
+                            				token) == Core::ERROR_NONE)
+					{
 						LOGINFO("got security token\n");
                     }
-					else{
+					else
+					{
 						LOGERR("failed to get security token\n");
                     }
                     security->Release();
-                } else {
+                }
+				else
+				{
 					LOGERR("No security agent\n");
                 }
 
                 string query = "token=" + token;
                 Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
                 m_remoteXCastObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(XCAST_CALLSIGN_VER), (_T(XCAST_CALLSIGN_VER)), false, query);
-				if (nullptr == m_remoteXCastObj) {
+				if (nullptr == m_remoteXCastObj)
+				{
 					LOGERR("JSONRPC: %s: initialization failed", XCAST_CALLSIGN_VER);
 				}
-				else{
+				else
+				{
 					LOGINFO("JSONRPC: %s: initialization ok", XCAST_CALLSIGN_VER);
 				}
             }
+			LOGINFO("Exiting..!!!");
         }
 
 		const string MiracastService::Initialize(PluginHost::IShell *service)
@@ -176,7 +188,9 @@ namespace WPEFramework
 				m_miracast_service_impl = nullptr;
 				m_isServiceInitialized = false;
 				m_isServiceEnabled = false;
+				LOGINFO("Done..!!!");
 			}
+			LOGINFO("Exiting..!!!");
 		}
 
 		string MiracastService::Information() const
