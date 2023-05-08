@@ -33,7 +33,6 @@
 #include <sys/epoll.h>
 #include <fstream>
 #include <MiracastCommon.h>
-#include "MiracastServiceImplementation.h"
 #include "MiracastP2P.h"
 #include "MiracastLogger.h"
 #include "MiracastRtspMsg.h"
@@ -81,6 +80,9 @@ public:
     std::string get_device_name(std::string mac);
     MiracastError set_FriendlyName(std::string friendly_name);
     std::string get_FriendlyName(void);
+    void set_enable(bool is_enabled);
+    void accept_client_connection(std::string is_accepted);
+    bool stop_client_connection(std::string mac_address);
 
 private:
     static MiracastController *m_miracast_ctrl_obj;

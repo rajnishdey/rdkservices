@@ -42,8 +42,7 @@ namespace MIRACAST
         return prettyFunction.substr(begin, end).c_str();
     }
 
-    // static int gDefaultLogLevel = INFO_LEVEL;
-    static int gDefaultLogLevel = VERBOSE_LEVEL;
+    static int gDefaultLogLevel = INFO_LEVEL;
     static FILE *fp = fopen("/opt/logs/miracast.log", "a");
 
     void logger_init()
@@ -61,10 +60,14 @@ namespace MIRACAST
              int threadID,
              const char *format, ...)
     {
-
         const char *levelMap[] = {"Fatal", "Error", "Warning", "Info", "Verbose", "Trace"};
         const short kFormatMessageSize = 4096;
         char formatted[kFormatMessageSize];
+
+        if (((MIRACAST::FATAL_LEVEL != level)&&(MIRACAST::ERROR_LEVEL != level))&&
+            (gDefaultLogLevel < level)){
+                return;
+        }
 
         va_list argptr;
         va_start(argptr, format);

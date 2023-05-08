@@ -69,7 +69,7 @@ namespace WPEFramework
 		SERVICE_REGISTRATION(MiracastService, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);
 
 		MiracastService *MiracastService::_instance = nullptr;
-		MiracastServiceImplementation *MiracastService::m_miracast_service_impl = nullptr;
+		MiracastController *MiracastService::m_miracast_ctrler_obj = nullptr;
 
 		MiracastService::MiracastService()
 			: PluginHost::JSONRPC(),
@@ -83,6 +83,7 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_GET_ENABLE, &MiracastService::getEnable, this);
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
+			MIRACAST::logger_init();
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -153,21 +154,21 @@ namespace WPEFramework
 			LOGINFO("Entering..!!!");
 			if (!m_isServiceInitialized)
 			{
-				m_miracast_service_impl = MiracastServiceImplementation::create(this);
+				m_miracast_ctrler_obj = MiracastController::getInstance(this);
 
-				if ( nullptr != m_miracast_service_impl ){
+				if ( nullptr != m_miracast_ctrler_obj ){
 					std::string friendlyname = "";
 
 					m_CurrentService = service;
 					getXCastPlugin();		
 					if (Core::ERROR_NONE == get_XCastFriendlyName(friendlyname))
 					{
-						m_miracast_service_impl->setFriendlyName(friendlyname);
+						m_miracast_ctrler_obj->set_FriendlyName(friendlyname);
 					}
 					m_isServiceInitialized = true;
 				}
 				else{
-					msg = "Failed to obtain MiracastServiceImpl Object";
+					msg = "Failed to obtain MiracastController Object";
 				}
 			}
 
@@ -182,10 +183,9 @@ namespace WPEFramework
 
 			if (m_isServiceInitialized)
 			{
-				m_miracast_service_impl->Shutdown();
-				MiracastServiceImplementation::Destroy(m_miracast_service_impl);
+				MiracastController::destroyInstance();
 				m_CurrentService = nullptr;
-				m_miracast_service_impl = nullptr;
+				m_miracast_ctrler_obj = nullptr;
 				m_isServiceInitialized = false;
 				m_isServiceEnabled = false;
 				LOGINFO("Done..!!!");
@@ -218,7 +218,7 @@ namespace WPEFramework
 				{
 					if (!m_isServiceEnabled)
 					{
-						m_miracast_service_impl->setEnable(is_enabled);
+						m_miracast_ctrler_obj->set_enable(is_enabled);
 						success = true;
 						m_isServiceEnabled = is_enabled;
 						response["message"] = "Successfully enabled the WFD Discovery";
@@ -232,7 +232,7 @@ namespace WPEFramework
 				{
 					if (m_isServiceEnabled)
 					{
-						m_miracast_service_impl->setEnable(is_enabled);
+						m_miracast_ctrler_obj->set_enable(is_enabled);
 						success = true;
 						m_isServiceEnabled = is_enabled;
 						response["message"] = "Successfully disabled the WFD Discovery";
@@ -281,7 +281,7 @@ namespace WPEFramework
 				requestedStatus = parameters["requestStatus"].String();
 				if (("Accept" == requestedStatus) || ("Reject" == requestedStatus))
 				{
-					m_miracast_service_impl->acceptClientConnectionRequest (requestedStatus);
+					m_miracast_ctrler_obj->accept_client_connection (requestedStatus);
 					success = true;
 				}
 				else
@@ -319,7 +319,7 @@ namespace WPEFramework
 
 				if (true == std::regex_match(mac_addr, mac_regex))
 				{
-					if (true == m_miracast_service_impl->StopClientConnection(mac_addr))
+					if (true == m_miracast_ctrler_obj->stop_client_connection(mac_addr))
 					{
 						success = true;
 						response["message"] = "Successfully Initiated the Stop WFD Client Connection";

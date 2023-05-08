@@ -219,6 +219,8 @@ void MiracastController::destroy_ControllerFramework(void)
     MiracastP2P::destroyInstance();
     m_p2p_ctrl_obj = nullptr;
 
+    send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_SHUTDOWN);
+
     delete m_controller_thread;
     delete m_thunder_req_handler_thread;
     MiracastRTSPMsg::destroyInstance();
@@ -1178,6 +1180,54 @@ void MiracastController::send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STAT
         m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
     }
     MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastController::set_enable(bool is_enabled)
+{
+    MIRACAST_SERVICE_STATES state = MIRACAST_SERVICE_WFD_STOP;
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    if ( true == is_enabled)
+    {
+        state = MIRACAST_SERVICE_WFD_START;
+    }
+
+    send_msg_thunder_msg_hdler_thread(state);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastController::accept_client_connection(std::string is_accepted)
+{
+    MIRACAST_SERVICE_STATES state = MIRACAST_SERVICE_REJECT_CLIENT;
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    if ("Accept" == is_accepted)
+    {
+        MIRACASTLOG_VERBOSE("Client Connection Request accepted\n");
+        state = MIRACAST_SERVICE_ACCEPT_CLIENT;
+    }
+    else
+    {
+        MIRACASTLOG_VERBOSE("Client Connection Request Rejected\n");
+    }
+    send_msg_thunder_msg_hdler_thread(state);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+bool MiracastController::stop_client_connection(std::string mac_address)
+{
+    MIRACASTLOG_TRACE("Entering...");
+
+    if (0 != (mac_address.compare(get_connected_device_mac())))
+    {
+        MIRACASTLOG_TRACE("Exiting...");
+        return false;
+    }
+    send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, mac_address);
+    MIRACASTLOG_TRACE("Exiting...");
+    return true;
 }
 
 void ThunderReqHandlerCallback(void *args)
