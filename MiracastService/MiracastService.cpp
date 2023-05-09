@@ -99,7 +99,7 @@ namespace WPEFramework
 			Unregister(METHOD_MIRACAST_GET_ENABLE);
 			Unregister(METHOD_MIRACAST_STOP_CLIENT_CONNECT);
 			Unregister(METHOD_MIRACAST_CLIENT_CONNECT);
-			LOGINFO("Done..!!!");
+			MIRACAST::logger_deinit();
 			LOGINFO("Exiting..!!!");
 		}
 

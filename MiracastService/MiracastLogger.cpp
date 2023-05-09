@@ -26,7 +26,6 @@
 
 namespace MIRACAST
 {
-
     static inline void sync_stdout()
     {
         if (getenv("SYNC_STDOUT"))
@@ -43,14 +42,27 @@ namespace MIRACAST
     }
 
     static int gDefaultLogLevel = INFO_LEVEL;
-    static FILE *fp = fopen("/opt/logs/miracast.log", "a");
+    static FILE *logger_file_ptr = nullptr;
 
     void logger_init()
     {
         sync_stdout();
         const char *level = getenv("MIRACAST_DEFAULT_LOG_LEVEL");
-        if (level)
+        if (level){
             gDefaultLogLevel = static_cast<LogLevel>(atoi(level));
+        }
+        const char *separate_logger = getenv("MIRACAST_SEPARATE_LOGGER_ENABLED");
+        if ((nullptr != separate_logger)&&(std::string(separate_logger) == "Yes")){
+            logger_file_ptr = fopen("/opt/logs/miracast.log", "a");
+        }
+    }
+
+    void logger_deinit()
+    {
+        if (nullptr != logger_file_ptr){
+            fclose(logger_file_ptr);
+            logger_file_ptr = nullptr;
+        }
     }
 
     void log(LogLevel level,
@@ -60,7 +72,7 @@ namespace MIRACAST
              int threadID,
              const char *format, ...)
     {
-        const char *levelMap[] = {"Fatal", "Error", "Warning", "Info", "Verbose", "Trace"};
+        const char *levelMap[] = {"FATAL", "ERROR", "WARN", "INFO", "VERBOSE", "TRACE"};
         const short kFormatMessageSize = 4096;
         char formatted[kFormatMessageSize];
 
@@ -74,53 +86,55 @@ namespace MIRACAST
         vsnprintf(formatted, kFormatMessageSize, format, argptr);
         va_end(argptr);
 
-        char timestamp[0xFF] = {0};
-        struct timespec spec;
-        struct tm tm;
-
-        clock_gettime(CLOCK_REALTIME, &spec);
-        gmtime_r(&spec.tv_sec, &tm);
-        long ms = spec.tv_nsec / 1.0e6;
-
-        sprintf(timestamp, "%02d%02d%02d-%02d:%02d:%02d.%03ld",
-                tm.tm_year % 100,
-                tm.tm_mon + 1,
-                tm.tm_mday,
-                tm.tm_hour,
-                tm.tm_min,
-                tm.tm_sec,
-                ms);
-
-        if (threadID)
+        if (nullptr!=logger_file_ptr)
         {
-            fprintf(fp, "%s [%s] [tid=%d] %s:%s:%d %s\n",
-                    timestamp,
-                    levelMap[static_cast<int>(level)],
-                    threadID,
-                    func, basename(file), line,
-                    formatted);
-        }
-        else
-        {
-            fprintf(fp, "%s [%s] %s:%s:%d %s\n",
-                    timestamp,
-                    levelMap[static_cast<int>(level)],
-                    func, basename(file), line,
-                    formatted);
-        }
+            char timestamp[0xFF] = {0};
+            struct timespec spec;
+            struct tm tm;
 
-        fflush(fp);
-        //
-        //    stat("/opt/logs/miracast.log", &st);
-        //    size = st.st_size;
-        //    if((size/1024/1024) > 1.5)
-        //    {
-        //        fclose(fp);
-        //        system("cp /opt/logs/miracast.log /opt/logs/miracast.log.1");
-        //        fp = fopen("/opt/logs/miracast.log", "a");
-        //    }
+            clock_gettime(CLOCK_REALTIME, &spec);
+            gmtime_r(&spec.tv_sec, &tm);
+            long ms = spec.tv_nsec / 1.0e6;
 
-        if (FATAL_LEVEL == level)
-            std::abort();
+            sprintf(timestamp, "%02d%02d%02d-%02d:%02d:%02d.%03ld",
+                    tm.tm_year % 100,
+                    tm.tm_mon + 1,
+                    tm.tm_mday,
+                    tm.tm_hour,
+                    tm.tm_min,
+                    tm.tm_sec,
+                    ms);
+
+            if (threadID)
+            {
+                fprintf(logger_file_ptr, "%s [%s] [tid=%d] %s:%s:%d %s\n",
+                        timestamp,
+                        levelMap[static_cast<int>(level)],
+                        threadID,
+                        func, basename(file), line,
+                        formatted);
+            }
+            else
+            {
+                fprintf(logger_file_ptr, "%s [%s] %s:%s:%d %s\n",
+                        timestamp,
+                        levelMap[static_cast<int>(level)],
+                        func, basename(file), line,
+                        formatted);
+            }
+
+            fflush(logger_file_ptr);
+        }
+        else{
+            fprintf(stderr, "[%d] %s [%s:%d] %s: %s \n",
+                    (int)syscall(SYS_gettid),
+                    levelMap[static_cast<int>(level)],
+                    basename(file),
+                    line,
+                    func,
+                    formatted);
+
+             fflush(stderr);
+        }
     }
 } // namespace MIRACAST
