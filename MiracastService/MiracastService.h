@@ -24,7 +24,7 @@
 
 #include "Module.h"
 #include <securityagent/SecurityTokenUtil.h>
-#include "MiracastServiceImplementation.h"
+#include <MiracastController.h>
 #include "libIARM.h"
 
 using std::vector;
@@ -76,7 +76,7 @@ namespace WPEFramework
 
             PluginHost::IShell *m_CurrentService;
             static MiracastService *_instance;
-            static MiracastServiceImplementation *m_miracast_service_impl;
+            static MiracastController *m_miracast_ctrler_obj;
 
         private:
             bool m_isServiceInitialized;

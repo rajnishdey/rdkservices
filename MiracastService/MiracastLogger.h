@@ -45,6 +45,11 @@ enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, VERBOSE_
  */
 void logger_init();
 
+/**
+ * @brief DeInit logging
+ * Should be called once per program run before calling exit-functions
+ */
+void logger_deinit();
 
 #define MIRACAST_assert(expr) do { \
                               if ( __builtin_expect(expr, true) ) \
