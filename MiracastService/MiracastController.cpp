@@ -413,7 +413,7 @@ void MiracastController::stop_session(bool stop_streaming_needed)
     MIRACASTLOG_TRACE("Entering...");
 
     if (true == stop_streaming_needed){
-        stop_streaming();
+        stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
     }
 
     stop_discover_devices();
@@ -554,17 +554,25 @@ MiracastError MiracastController::start_streaming()
     return MIRACAST_OK;
 }
 
-MiracastError MiracastController::stop_streaming(bool shutdown)
+MiracastError MiracastController::stop_streaming(eCONTROLLER_FW_STATES state )
 {
     system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
     if (!get_connected_device_mac().empty()){
-        eCONTROLLER_FW_STATES state = RTSP_TEARDOWN_FROM_SINK2SRC;
-        if (shutdown){
-            state = RTSP_SELF_ABORT;
+        if ((CONTROLLER_SELF_ABORT == state) || 
+            (CONTROLLER_TEARDOWN_REQ_FROM_THUNDER == state)||
+            (CONTROLLER_STOP_STREAMING == state))
+        {
+            MiracastPlayer *miracastPlayerObj = MiracastPlayer::getInstance();
+            miracastPlayerObj->stop();
+            if (CONTROLLER_STOP_STREAMING != state){
+                eCONTROLLER_FW_STATES rtsp_state = RTSP_TEARDOWN_FROM_SINK2SRC;
+
+                if (CONTROLLER_SELF_ABORT == state){
+                    rtsp_state = RTSP_SELF_ABORT;
+                }
+                send_msg_rtsp_msg_hdler_thread(rtsp_state);
+            }
         }
-        MiracastPlayer *miracastPlayerObj = MiracastPlayer::getInstance();
-        miracastPlayerObj->stop();
-        send_msg_rtsp_msg_hdler_thread(state);
     }
     MIRACASTLOG_INFO("Stopped Streaming.");
     return MIRACAST_OK;
@@ -573,7 +581,7 @@ MiracastError MiracastController::stop_streaming(bool shutdown)
 MiracastError MiracastController::disconnect_device()
 {
     MIRACASTLOG_VERBOSE("Entering...");
-    stop_streaming();
+    stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
     MIRACASTLOG_VERBOSE("Exiting...");
     return MIRACAST_OK;
 }
@@ -685,7 +693,7 @@ void MiracastController::Controller_Thread(void *args)
         {
             MIRACASTLOG_TRACE("CONTROLLER_SELF_ABORT Received.\n");
 
-            stop_streaming(true);
+            stop_streaming(CONTROLLER_SELF_ABORT);
             break;
         }
 
@@ -860,7 +868,6 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_GO_GROUP_REMOVED:
                     {
                         MIRACASTLOG_TRACE("CONTROLLER_GO_GROUP_REMOVED Received\n");
-                        stop_streaming();
                     }
                     break;
                     case CONTROLLER_GO_STOP_FIND:
@@ -914,6 +921,7 @@ void MiracastController::Controller_Thread(void *args)
                             MIRACASTLOG_TRACE("[TIMEDOUT/SEND_REQ_RESP_FAIL/INVALID_MESSAG/GO_NEG/GROUP_FORMATION_FAILURE] Received\n");
                             m_notify_handler->onMiracastServiceClientConnectionError(MAC, device_name);
                         }
+                        stop_streaming();
                         m_rtsp_msg->reset_WFDSourceMACAddress();
                         m_rtsp_msg->reset_WFDSourceName();
                         restart_session(start_discoverting_enabled);
@@ -986,7 +994,7 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_TEARDOWN_REQ_FROM_THUNDER:
                     {
                         MIRACASTLOG_TRACE("TEARDOWN request sent to RTSP handler\n");
-                        stop_streaming();
+                        stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
                     }
                     break;
                     default:

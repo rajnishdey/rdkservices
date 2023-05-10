@@ -63,7 +63,7 @@ public:
     bool get_connection_status();
     DeviceInfo *get_device_details(std::string mac);
 
-    MiracastError stop_streaming(bool shutdown = false);
+    MiracastError stop_streaming(eCONTROLLER_FW_STATES state = CONTROLLER_STOP_STREAMING);
     MiracastError disconnect_device();
     void send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STATES state, std::string buffer = "", std::string user_data = "");
     void send_msg_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
