@@ -126,7 +126,7 @@ namespace MIRACAST
             fflush(logger_file_ptr);
         }
         else{
-            fprintf(stderr, "[%d] %s [%s:%d] %s: %s \n",
+            fprintf(stderr, "[MiracastApp][%d] %s [%s:%d] %s: %s \n",
                     (int)syscall(SYS_gettid),
                     levelMap[static_cast<int>(level)],
                     basename(file),
