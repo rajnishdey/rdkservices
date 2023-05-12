@@ -19,8 +19,6 @@
 
 #include <MiracastRtspMsg.h>
 
-#define SOCKET_WAIT_TIMEOUT_IN_MILLISEC (30 * ONE_SECOND_PER_MILLISEC)
-
 MiracastRTSPMsg *MiracastRTSPMsg::m_rtsp_msg_obj{nullptr};
 static std::string empty_string = "";
 
@@ -105,6 +103,13 @@ MiracastRTSPMsg::MiracastRTSPMsg()
 }
 MiracastRTSPMsg::~MiracastRTSPMsg()
 {
+    MIRACASTLOG_TRACE("Entering...");
+    delete m_rtsp_msg_handler_thread;
+    if (-1 != m_tcpSockfd){
+        close(m_tcpSockfd);
+        m_tcpSockfd = -1;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 std::string MiracastRTSPMsg::get_WFDVideoFormat(void)
@@ -432,7 +437,7 @@ void MiracastRTSPMsg::reset_WFDSourceName(void)
 /*
  * Wait for data returned by the socket for specified time
  */
-bool MiracastRTSPMsg::wait_data_timeout(int m_Sockfd, unsigned ms)
+bool MiracastRTSPMsg::wait_data_timeout(int m_Sockfd, unsigned int ms)
 {
     struct timeval timeout = {0};
     fd_set readFDSet;
@@ -450,12 +455,12 @@ bool MiracastRTSPMsg::wait_data_timeout(int m_Sockfd, unsigned ms)
     return false;
 }
 
-RTSP_STATUS MiracastRTSPMsg::receive_buffer_timedOut(int socket_fd, void *buffer, size_t buffer_len)
+RTSP_STATUS MiracastRTSPMsg::receive_buffer_timedOut(int socket_fd, void *buffer, size_t buffer_len , unsigned int wait_time_ms )
 {
     int recv_return = -1;
     RTSP_STATUS status = RTSP_MSG_SUCCESS;
 
-    if (!wait_data_timeout(socket_fd, SOCKET_WAIT_TIMEOUT_IN_MILLISEC))
+    if (!wait_data_timeout(socket_fd, wait_time_ms))
     {
         return RTSP_TIMEDOUT;
     }
@@ -510,6 +515,11 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
 
     struct sockaddr_storage in_addr = str_addr;
 
+    if (-1 != m_tcpSockfd){
+        close(m_tcpSockfd);
+        m_tcpSockfd = -1;
+    }
+
     m_tcpSockfd = socket(in_addr.ss_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (m_tcpSockfd < 0)
     {
@@ -537,7 +547,7 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
         else
         {
             // connection in progress
-            if (!wait_data_timeout(m_tcpSockfd, SOCKET_WAIT_TIMEOUT_IN_MILLISEC))
+            if (!wait_data_timeout(m_tcpSockfd, SOCKET_DFLT_WAIT_TIMEOUT))
             {
                 // connection timed out or failed
                 MIRACASTLOG_INFO("Socket Connection Timedout ...\n");
@@ -973,50 +983,51 @@ RTSP_STATUS MiracastRTSPMsg::validate_rtsp_msg_response_back(std::string rtsp_ms
     MIRACASTLOG_TRACE("Entering...");
     switch (action_id)
     {
-    case RTSP_M1_REQUEST_RECEIVED:
-    {
-        status_code = validate_rtsp_m1_msg_m2_send_request(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M2_REQUEST_ACK:
-    {
-        status_code = validate_rtsp_m2_request_ack(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M3_REQUEST_RECEIVED:
-    {
-        status_code = validate_rtsp_m3_response_back(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M4_REQUEST_RECEIVED:
-    {
-        status_code = validate_rtsp_m4_response_back(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M5_REQUEST_RECEIVED:
-    {
-        status_code = validate_rtsp_m5_msg_m6_send_request(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M6_REQUEST_ACK:
-    {
-        status_code = validate_rtsp_m6_ack_m7_send_request(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_M7_REQUEST_ACK:
-    {
-        status_code = validate_rtsp_m7_request_ack(rtsp_msg_buffer);
-    }
-    break;
-    case RTSP_MSG_POST_M1_M7_XCHANGE:
-    {
-        status_code = validate_rtsp_post_m1_m7_xchange(rtsp_msg_buffer);
-    }
-    break;
-    default:
-    {
-        //
-    }
+        case RTSP_M1_REQUEST_RECEIVED:
+        {
+            status_code = validate_rtsp_m1_msg_m2_send_request(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M2_REQUEST_ACK:
+        {
+            status_code = validate_rtsp_m2_request_ack(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M3_REQUEST_RECEIVED:
+        {
+            status_code = validate_rtsp_m3_response_back(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M4_REQUEST_RECEIVED:
+        {
+            status_code = validate_rtsp_m4_response_back(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M5_REQUEST_RECEIVED:
+        {
+            status_code = validate_rtsp_m5_msg_m6_send_request(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M6_REQUEST_ACK:
+        {
+            status_code = validate_rtsp_m6_ack_m7_send_request(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_M7_REQUEST_ACK:
+        {
+            status_code = validate_rtsp_m7_request_ack(rtsp_msg_buffer);
+        }
+        break;
+        case RTSP_MSG_POST_M1_M7_XCHANGE:
+        {
+            status_code = validate_rtsp_post_m1_m7_xchange(rtsp_msg_buffer);
+        }
+        break;
+        default:
+        {
+            //
+        }
+        break;
     }
     MIRACASTLOG_INFO("Validating RTSP Msg => ACTION[%#04X] Resp[%#04X]\n", action_id, status_code);
     MIRACASTLOG_TRACE("Exiting...");
@@ -1106,7 +1117,10 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
         while (true == start_monitor_keep_alive_msg)
         {
             memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
-            socket_state = receive_buffer_timedOut(m_tcpSockfd, rtsp_message_socket, sizeof(rtsp_message_socket));
+            socket_state = receive_buffer_timedOut( m_tcpSockfd,
+                                                    rtsp_message_socket,
+                                                    sizeof(rtsp_message_socket),
+                                                    RTSP_KEEP_ALIVE_WAIT_TIMEOUT );
             if (RTSP_MSG_SUCCESS == socket_state)
             {
                 socket_buffer.clear();
@@ -1204,7 +1218,9 @@ void MiracastRTSPMsg::send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES sta
 void RTSPMsgHandlerCallback(void *args)
 {
     MiracastRTSPMsg *rtsp_msg_obj = (MiracastRTSPMsg *)args;
+    MIRACASTLOG_TRACE("Entering...");
     rtsp_msg_obj->RTSPMessageHandler_Thread(nullptr);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 #ifdef ENABLE_HDCP2X_SUPPORT

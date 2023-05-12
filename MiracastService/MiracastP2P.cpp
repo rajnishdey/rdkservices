@@ -83,7 +83,7 @@ void MiracastP2P::destroyInstance()
         delete m_miracast_p2p_obj;
         m_miracast_p2p_obj = nullptr;
     }
-    MIRACASTLOG_TRACE("Existing...");
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 static P2P_EVENTS convertIARMtoP2P(IARM_EventId_t eventId)

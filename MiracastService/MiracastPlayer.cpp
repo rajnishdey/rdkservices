@@ -42,6 +42,7 @@ MiracastPlayer *MiracastPlayer::getInstance()
 
 void MiracastPlayer::destroyInstance()
 {
+    MIRACASTLOG_TRACE("Entering...");
     if (mMiracastPlayer != nullptr)
     {
         mMiracastPlayer->stop();
@@ -56,15 +57,18 @@ void MiracastPlayer::destroyInstance()
         delete mMiracastPlayer;
         mMiracastPlayer = nullptr;
     }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 MiracastPlayer::MiracastPlayer()
 {
+    MIRACASTLOG_TRACE("Entering...");
     gst_init(NULL, NULL);
     m_bBuffering = false;
     m_bReady = false;
     m_currentPosition = 0.0f;
     m_buffering_level = 100;
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 MiracastPlayer::~MiracastPlayer()
@@ -262,8 +266,8 @@ void *MiracastPlayer::playbackThread(void *ctx)
     g_main_context_push_thread_default(self->m_main_loop_context);
     g_main_loop_run(self->m_main_loop);
     self->m_playback_thread = 0;
-    pthread_exit(NULL);
     MIRACASTLOG_INFO("Exiting..!!!");
+    pthread_exit(NULL);
 }
 
 gboolean MiracastPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data)

@@ -216,10 +216,11 @@ void MiracastController::create_ControllerFramework(void)
 void MiracastController::destroy_ControllerFramework(void)
 {
     MIRACASTLOG_TRACE("Entering...");
-    MiracastP2P::destroyInstance();
-    m_p2p_ctrl_obj = nullptr;
 
     send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_SHUTDOWN);
+
+    MiracastP2P::destroyInstance();
+    m_p2p_ctrl_obj = nullptr;
 
     delete m_controller_thread;
     delete m_thunder_req_handler_thread;
@@ -556,43 +557,56 @@ MiracastError MiracastController::start_streaming()
 
 MiracastError MiracastController::stop_streaming(eCONTROLLER_FW_STATES state )
 {
-    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
-    if (!get_connected_device_mac().empty()){
-        if ((CONTROLLER_SELF_ABORT == state) || 
-            (CONTROLLER_TEARDOWN_REQ_FROM_THUNDER == state)||
-            (CONTROLLER_STOP_STREAMING == state))
-        {
-            MiracastPlayer *miracastPlayerObj = MiracastPlayer::getInstance();
-            miracastPlayerObj->stop();
-            if (CONTROLLER_STOP_STREAMING != state){
-                eCONTROLLER_FW_STATES rtsp_state = RTSP_TEARDOWN_FROM_SINK2SRC;
+    MIRACASTLOG_TRACE("Entering...");
 
-                if (CONTROLLER_SELF_ABORT == state){
-                    rtsp_state = RTSP_SELF_ABORT;
-                }
-                send_msg_rtsp_msg_hdler_thread(rtsp_state);
+    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
+
+    if ((CONTROLLER_SELF_ABORT == state)||
+        (CONTROLLER_TEARDOWN_REQ_FROM_THUNDER == state)||
+        (CONTROLLER_STOP_STREAMING == state))
+    {
+        if (CONTROLLER_STOP_STREAMING != state){
+            eCONTROLLER_FW_STATES rtsp_state = RTSP_TEARDOWN_FROM_SINK2SRC;
+
+            if (CONTROLLER_SELF_ABORT == state){
+                rtsp_state = RTSP_SELF_ABORT;
+            }
+            send_msg_rtsp_msg_hdler_thread(rtsp_state);
+        }
+        if (!get_connected_device_mac().empty())
+        {
+            if (CONTROLLER_SELF_ABORT == state)
+            {
+                MiracastPlayer::destroyInstance();
+            }
+            else
+            {
+                MiracastPlayer *miracastPlayerObj = MiracastPlayer::getInstance();
+                miracastPlayerObj->stop();
             }
         }
     }
-    MIRACASTLOG_INFO("Stopped Streaming.");
+    MIRACASTLOG_TRACE("Exiting...");
     return MIRACAST_OK;
 }
 
 MiracastError MiracastController::disconnect_device()
 {
-    MIRACASTLOG_VERBOSE("Entering...");
+    MIRACASTLOG_TRACE("Entering...");
     stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
-    MIRACASTLOG_VERBOSE("Exiting...");
+    MIRACASTLOG_TRACE("Exiting...");
     return MIRACAST_OK;
 }
 
 std::string MiracastController::get_localIp()
 {
+    MIRACASTLOG_TRACE("Entering...");
     std::string ip_addr = "";
     if (nullptr != m_groupInfo)
     {
         ip_addr = m_groupInfo->localIPAddr;
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return ip_addr;
 }
 
@@ -620,7 +634,7 @@ DeviceInfo *MiracastController::get_device_details(std::string MAC)
 {
     DeviceInfo *deviceInfo = nullptr;
     std::size_t found;
-    // memset(deviceInfo, 0, sizeof(deviceInfo));
+    MIRACASTLOG_TRACE("Entering...");
     for (auto device : m_deviceInfoList)
     {
         found = device->deviceMAC.find(MAC);
@@ -630,6 +644,7 @@ DeviceInfo *MiracastController::get_device_details(std::string MAC)
             break;
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return deviceInfo;
 }
 
@@ -675,7 +690,10 @@ void MiracastController::Controller_Thread(void *args)
 {
     CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
     bool thunder_req_client_connection_sent = false;
-    bool start_discoverting_enabled = false;
+    bool start_discovering_enabled = false;
+    bool session_restart_required = false;
+
+    MIRACASTLOG_TRACE("Entering...");
 
     while (true)
     {
@@ -795,6 +813,7 @@ void MiracastController::Controller_Thread(void *args)
                         MiracastError ret = MIRACAST_FAIL;
                         size_t found = event_buffer.find("client");
                         size_t found_space = event_buffer.find(" ");
+
                         if (found != std::string::npos)
                         {
                             m_groupInfo->ipAddr = parse_p2p_event_data(event_buffer.c_str(), "ip_addr");
@@ -827,8 +846,7 @@ void MiracastController::Controller_Thread(void *args)
                             if (m_groupInfo->localIPAddr.empty())
                             {
                                 MIRACASTLOG_ERROR("Local IP address is not obtained");
-                                m_notify_handler->onMiracastServiceClientConnectionError(m_groupInfo->goDevAddr, device_name);
-                                continue;
+                                session_restart_required = true;
                             }
                             else
                             {
@@ -840,19 +858,17 @@ void MiracastController::Controller_Thread(void *args)
                                 MIRACASTLOG_VERBOSE("initiate_TCP started GO IP[%s]\n", m_groupInfo->goIPAddr.c_str());
                                 ret = initiate_TCP(m_groupInfo->goIPAddr);
                                 MIRACASTLOG_VERBOSE("initiate_TCP done ret[%x]\n", ret);
-                            }
-
-                            if (MIRACAST_OK == ret)
-                            {
-                                MIRACASTLOG_TRACE("RTSP Thread Initialated with RTSP_START_RECEIVE_MSGS\n");
-                                send_msg_rtsp_msg_hdler_thread(RTSP_START_RECEIVE_MSGS);
-                                ret = MIRACAST_FAIL;
-                            }
-                            else
-                            {
-                                MIRACASTLOG_FATAL("TCP connection Failed");
-                                m_notify_handler->onMiracastServiceClientConnectionError(m_groupInfo->goDevAddr, device_name);
-                                continue;
+                                if (MIRACAST_OK == ret)
+                                {
+                                    MIRACASTLOG_TRACE("RTSP Thread Initialated with RTSP_START_RECEIVE_MSGS\n");
+                                    send_msg_rtsp_msg_hdler_thread(RTSP_START_RECEIVE_MSGS);
+                                    ret = MIRACAST_FAIL;
+                                }
+                                else
+                                {
+                                    MIRACASTLOG_ERROR("TCP connection Failed");
+                                    session_restart_required = true;
+                                }
                             }
                         }
                         else
@@ -862,7 +878,10 @@ void MiracastController::Controller_Thread(void *args)
                             // STB is the GO in the p2p group
                             m_groupInfo->isGO = true;
                         }
-                        m_connectionStatus = true;
+                        if ( true == session_restart_required ){
+                            m_notify_handler->onMiracastServiceClientConnectionError(m_groupInfo->goDevAddr, device_name);
+                            restart_session(start_discovering_enabled);
+                        }
                     }
                     break;
                     case CONTROLLER_GO_GROUP_REMOVED:
@@ -900,6 +919,7 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         MIRACASTLOG_TRACE("[CONTROLLER_RTSP_MSG_RECEIVED_PROPERLY] Received\n");
                         start_streaming();
+                        m_connectionStatus = true;
                     }
                     break;
                     case CONTROLLER_RTSP_MSG_TIMEDOUT:
@@ -910,6 +930,8 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         std::string MAC = m_rtsp_msg->get_WFDSourceMACAddress();
                         std::string device_name = m_rtsp_msg->get_WFDSourceName();
+
+                        m_connectionStatus = false;
 
                         if (CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED == controller_msgq_data.state)
                         {
@@ -924,7 +946,7 @@ void MiracastController::Controller_Thread(void *args)
                         stop_streaming();
                         m_rtsp_msg->reset_WFDSourceMACAddress();
                         m_rtsp_msg->reset_WFDSourceName();
-                        restart_session(start_discoverting_enabled);
+                        restart_session(start_discovering_enabled);
                     }
                     break;
                     default:
@@ -945,14 +967,14 @@ void MiracastController::Controller_Thread(void *args)
                         MIRACASTLOG_TRACE("CONTROLLER_START_DISCOVERING Received\n");
                         set_WFDParameters();
                         discover_devices();
-                        start_discoverting_enabled = true;
+                        start_discovering_enabled = true;
                     }
                     break;
                     case CONTROLLER_STOP_DISCOVERING:
                     {
                         MIRACASTLOG_TRACE("CONTROLLER_STOP_DISCOVERING Received\n");
                         stop_session(true);
-                        start_discoverting_enabled = false;
+                        start_discovering_enabled = false;
                     }
                     break;
                     case CONTROLLER_START_STREAMING:
@@ -1012,6 +1034,7 @@ void MiracastController::Controller_Thread(void *args)
             break;
         }        
     }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastController::ThunderReqHandler_Thread(void *args)
@@ -1019,6 +1042,8 @@ void MiracastController::ThunderReqHandler_Thread(void *args)
     CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
     THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_hdlr_msgq_data = {0};
     bool send_message = false;
+
+    MIRACASTLOG_TRACE("Entering...");
 
     while (true)
     {
@@ -1032,80 +1057,80 @@ void MiracastController::ThunderReqHandler_Thread(void *args)
 
         switch (thunder_req_hdlr_msgq_data.state)
         {
-        case THUNDER_REQ_HLDR_START_DISCOVER:
-        {
-            MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_START_DISCOVER]\n");
-            controller_msgq_data.state = CONTROLLER_START_DISCOVERING;
-        }
-        break;
-        case THUNDER_REQ_HLDR_STOP_DISCOVER:
-        {
-            MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_STOP_DISCOVER]\n");
-            controller_msgq_data.state = CONTROLLER_STOP_DISCOVERING;
-        }
-        break;
-        case THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER:
-        {
-            std::string device_name = thunder_req_hdlr_msgq_data.buffer_user_data;
-            std::string MAC = thunder_req_hdlr_msgq_data.msg_buffer;
-
-            send_message = true;
-            MIRACASTLOG_TRACE("\n################# GO DEVICE[%s - %s] wants to connect: #################\n", device_name.c_str(), MAC.c_str());
-            m_notify_handler->onMiracastServiceClientConnectionRequest(MAC, device_name);
-
-            if (0 == access("/opt/miracast_autoconnect", F_OK)){
-                strcpy(controller_msgq_data.msg_buffer, MAC.c_str());
-                controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
-            }
-            else if (true == m_thunder_req_handler_thread->receive_message(&thunder_req_hdlr_msgq_data, sizeof(thunder_req_hdlr_msgq_data), THUNDER_REQ_THREAD_CLIENT_CONNECTION_WAITTIME))
+            case THUNDER_REQ_HLDR_START_DISCOVER:
             {
-                    MIRACASTLOG_TRACE("ThunderReqHandler Msg Received [%#08X]\n", thunder_req_hdlr_msgq_data.state);
-                    if (THUNDER_REQ_HLDR_CONNECT_DEVICE_ACCEPTED == thunder_req_hdlr_msgq_data.state)
-                    {
-                        strcpy(controller_msgq_data.msg_buffer, MAC.c_str());
-                        controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
-                    }
-                    else if (THUNDER_REQ_HLDR_CONNECT_DEVICE_REJECTED == thunder_req_hdlr_msgq_data.state)
-                    {
-                        controller_msgq_data.state = CONTROLLER_CONNECT_REQ_REJECT;
-                    }
-                    else if (THUNDER_REQ_HLDR_SHUTDOWN_APP == thunder_req_hdlr_msgq_data.state)
-                    {
-                        controller_msgq_data.state = CONTROLLER_SELF_ABORT;
-                    }
-                    else if (THUNDER_REQ_HLDR_STOP_DISCOVER == thunder_req_hdlr_msgq_data.state)
-                    {
-                        controller_msgq_data.state = CONTROLLER_STOP_DISCOVERING;
-                    }
-                    else
-                    {
-                        controller_msgq_data.state = CONTROLLER_INVALID_STATE;
-                    }
+                MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_START_DISCOVER]\n");
+                controller_msgq_data.state = CONTROLLER_START_DISCOVERING;
             }
-            else
+            break;
+            case THUNDER_REQ_HLDR_STOP_DISCOVER:
             {
-                MIRACASTLOG_TRACE("[CONTROLLER_CONNECT_REQ_TIMEOUT]\n");
-                controller_msgq_data.state = CONTROLLER_CONNECT_REQ_TIMEOUT;
+                MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_STOP_DISCOVER]\n");
+                controller_msgq_data.state = CONTROLLER_STOP_DISCOVERING;
             }
-        }
-        break;
-        case THUNDER_REQ_HLDR_SHUTDOWN_APP:
-        {
-            MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_SHUTDOWN_APP]\n");
-            controller_msgq_data.state = CONTROLLER_SELF_ABORT;
-        }
-        break;
-        case THUNDER_REQ_HLDR_TEARDOWN_CONNECTION:
-        {
-            MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_TEARDOWN_CONNECTION]\n");
-            controller_msgq_data.state = CONTROLLER_TEARDOWN_REQ_FROM_THUNDER;
-        }
-        break;
-        default:
-        {
-            //
-        }
-        break;
+            break;
+            case THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER:
+            {
+                std::string device_name = thunder_req_hdlr_msgq_data.buffer_user_data;
+                std::string MAC = thunder_req_hdlr_msgq_data.msg_buffer;
+
+                send_message = true;
+                MIRACASTLOG_TRACE("\n################# GO DEVICE[%s - %s] wants to connect: #################\n", device_name.c_str(), MAC.c_str());
+                m_notify_handler->onMiracastServiceClientConnectionRequest(MAC, device_name);
+
+                if (0 == access("/opt/miracast_autoconnect", F_OK)){
+                    strcpy(controller_msgq_data.msg_buffer, MAC.c_str());
+                    controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
+                }
+                else if (true == m_thunder_req_handler_thread->receive_message(&thunder_req_hdlr_msgq_data, sizeof(thunder_req_hdlr_msgq_data), THUNDER_REQ_THREAD_CLIENT_CONNECTION_WAITTIME))
+                {
+                        MIRACASTLOG_TRACE("ThunderReqHandler Msg Received [%#08X]\n", thunder_req_hdlr_msgq_data.state);
+                        if (THUNDER_REQ_HLDR_CONNECT_DEVICE_ACCEPTED == thunder_req_hdlr_msgq_data.state)
+                        {
+                            strcpy(controller_msgq_data.msg_buffer, MAC.c_str());
+                            controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
+                        }
+                        else if (THUNDER_REQ_HLDR_CONNECT_DEVICE_REJECTED == thunder_req_hdlr_msgq_data.state)
+                        {
+                            controller_msgq_data.state = CONTROLLER_CONNECT_REQ_REJECT;
+                        }
+                        else if (THUNDER_REQ_HLDR_SHUTDOWN_APP == thunder_req_hdlr_msgq_data.state)
+                        {
+                            controller_msgq_data.state = CONTROLLER_SELF_ABORT;
+                        }
+                        else if (THUNDER_REQ_HLDR_STOP_DISCOVER == thunder_req_hdlr_msgq_data.state)
+                        {
+                            controller_msgq_data.state = CONTROLLER_STOP_DISCOVERING;
+                        }
+                        else
+                        {
+                            controller_msgq_data.state = CONTROLLER_INVALID_STATE;
+                        }
+                }
+                else
+                {
+                    MIRACASTLOG_TRACE("[CONTROLLER_CONNECT_REQ_TIMEOUT]\n");
+                    controller_msgq_data.state = CONTROLLER_CONNECT_REQ_TIMEOUT;
+                }
+            }
+            break;
+            case THUNDER_REQ_HLDR_SHUTDOWN_APP:
+            {
+                MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_SHUTDOWN_APP]\n");
+                controller_msgq_data.state = CONTROLLER_SELF_ABORT;
+            }
+            break;
+            case THUNDER_REQ_HLDR_TEARDOWN_CONNECTION:
+            {
+                MIRACASTLOG_TRACE("[THUNDER_REQ_HLDR_TEARDOWN_CONNECTION]\n");
+                controller_msgq_data.state = CONTROLLER_TEARDOWN_REQ_FROM_THUNDER;
+            }
+            break;
+            default:
+            {
+                //
+            }
+            break;
         }
 
         if (true == send_message)
@@ -1119,6 +1144,7 @@ void MiracastController::ThunderReqHandler_Thread(void *args)
             }
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastController::send_msg_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state)
@@ -1241,11 +1267,15 @@ bool MiracastController::stop_client_connection(std::string mac_address)
 void ThunderReqHandlerCallback(void *args)
 {
     MiracastController *miracast_ctrler_obj = (MiracastController *)args;
+    MIRACASTLOG_TRACE("Entering...");
     miracast_ctrler_obj->ThunderReqHandler_Thread(nullptr);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void ControllerThreadCallback(void *args)
 {
     MiracastController *miracast_ctrler_obj = (MiracastController *)args;
+    MIRACASTLOG_TRACE("Entering...");
     miracast_ctrler_obj->Controller_Thread(nullptr);
+    MIRACASTLOG_TRACE("Exiting...");
 }

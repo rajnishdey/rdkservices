@@ -27,7 +27,8 @@
 #include <fcntl.h>
 
 #define MAX_EPOLL_EVENTS 64
-#define SOCKET_WAIT_TIMEOUT_IN_MILLISEC (30 * ONE_SECOND_PER_MILLISEC)
+#define SOCKET_DFLT_WAIT_TIMEOUT (30 * ONE_SECOND_IN_MILLISEC)
+#define RTSP_KEEP_ALIVE_WAIT_TIMEOUT    ( ONE_SECOND_IN_MILLISEC )
 
 typedef enum rtsp_status_e
 {
@@ -202,8 +203,8 @@ private:
     std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
     std::string get_RequestSequenceNumber(void);
 
-    RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len);
-    bool wait_data_timeout(int m_Sockfd, unsigned ms);
+    RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len , unsigned int wait_time_ms = SOCKET_DFLT_WAIT_TIMEOUT );
+    bool wait_data_timeout(int m_Sockfd, unsigned int ms);
     RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
 };
 

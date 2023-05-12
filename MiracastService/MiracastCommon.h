@@ -38,7 +38,7 @@ using namespace MIRACAST;
 
 #define SPACE_CHAR " "
 
-#define ONE_SECOND_PER_MILLISEC (1000)
+#define ONE_SECOND_IN_MILLISEC (1000)
 
 #define THREAD_RECV_MSG_INDEFINITE_WAIT (-1)
 
