@@ -42,6 +42,8 @@ using namespace MIRACAST;
 
 #define THREAD_RECV_MSG_INDEFINITE_WAIT (-1)
 
+#define WPA_SUP_DFLT_CTRL_PATH "/var/run/wpa_supplicant/p2p-dev-wlan0"
+
 typedef enum controller_framework_states_e
 {
     THUNDER_REQ_HLDR_START_DISCOVER = 0x00000001,
@@ -179,6 +181,24 @@ typedef struct thunder_req_hldr_msg_st
 #define RTSP_HANDLER_MSG_COUNT (2)
 #define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSP_HLDR_MSGQ_STRUCT))
 
+#ifdef ENABLE_TEST_NOTIFIER
+typedef enum test_notifier_states_e{
+    TEST_NOTIFIER_INVALID_STATE = 0x00,
+    TEST_NOTIFIER_CLIENT_CONNECTION_REQUESTED,
+    TEST_NOTIFIER_CLIENT_STOP_REQUESTED,
+    TEST_NOTIFIER_CLIENT_CONNECTION_STARTED,
+    TEST_NOTIFIER_CLIENT_CONNECTION_ERROR,
+    TEST_NOTIFIER_SHUTDOWN
+}
+TEST_NOTIFIER_STATES;
+
+#define TEST_NOTIFIER_THREAD_NAME ("TEST_NOTIFIER")
+#define TEST_NOTIFIER_THREAD_STACK (20 * 1024)
+#define TEST_NOTIFIER_MSG_COUNT (1)
+#define TEST_NOTIFIER_MSGQ_SIZE (sizeof(TEST_NOTIFIER_STATES))
+
+#endif /*ENABLE_TEST_NOTIFIER*/
+
 /**
  * Abstract class for Notification.
  */
@@ -197,7 +217,7 @@ public:
     MiracastThread();
     MiracastThread(std::string thread_name, size_t stack_size, size_t msg_size, size_t queue_depth, void (*callback)(void *), void *user_data);
     ~MiracastThread();
-    void start(void);
+    MiracastError start(void);
     void send_message(void *message, size_t msg_size);
     int8_t receive_message(void *message, size_t msg_size, int sem_wait_timedout);
 
@@ -205,7 +225,7 @@ private:
     std::string m_thread_name;
     pthread_t m_pthread_id;
     pthread_attr_t m_pthread_attr;
-    sem_t m_sem_object;
+    sem_t m_empty_msgq_sem_obj;
     GAsyncQueue *m_g_queue;
     size_t m_thread_stacksize;
     size_t m_thread_message_size;

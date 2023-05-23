@@ -93,7 +93,7 @@ typedef struct rtsp_msg_template_info
 class MiracastRTSPMsg
 {
 public:
-    static MiracastRTSPMsg *getInstance(MiracastThread *controller_thread_id = nullptr);
+    static MiracastRTSPMsg *getInstance(MiracastError &error_code , MiracastThread *controller_thread_id = nullptr);
     static void destroyInstance();
 
     std::string get_WFDVideoFormat(void);
@@ -187,6 +187,7 @@ private:
     MiracastThread *m_controller_thread;
 
     void send_msgto_controller_thread(eCONTROLLER_FW_STATES state);
+    MiracastError create_RTSPThread(void);
 
     RTSP_STATUS validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, eCONTROLLER_FW_STATES state);
     RTSP_STATUS validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer);

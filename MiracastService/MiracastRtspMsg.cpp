@@ -42,15 +42,24 @@ RTSP_MSG_TEMPLATE_INFO MiracastRTSPMsg::rtsp_msg_template_info[] = {
     {RTSP_MSG_FMT_TEARDOWN_REQUEST, "TEARDOWN %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n"},
     {RTSP_MSG_FMT_TEARDOWN_RESPONSE, "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n"}};
 
-MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastThread *controller_thread_id)
+MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastError &error_code , MiracastThread *controller_thread_id)
 {
     MIRACASTLOG_TRACE("Entering...");
+    error_code = MIRACAST_OK;
+
     if (nullptr == m_rtsp_msg_obj)
     {
         m_rtsp_msg_obj = new MiracastRTSPMsg();
         if (nullptr != m_rtsp_msg_obj)
         {
-            m_rtsp_msg_obj->m_controller_thread = controller_thread_id;
+            if ( MIRACAST_OK != m_rtsp_msg_obj->create_RTSPThread()){
+                error_code = MIRACAST_RTSP_INIT_FAILED;
+                delete m_rtsp_msg_obj;
+                m_rtsp_msg_obj = nullptr;
+            }
+            else{
+                m_rtsp_msg_obj->m_controller_thread = controller_thread_id;
+            }
         }
     }
     MIRACASTLOG_TRACE("Exiting...");
@@ -60,6 +69,7 @@ MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastThread *controller_thread_
 void MiracastRTSPMsg::destroyInstance()
 {
     MIRACASTLOG_TRACE("Entering...");
+
     if (nullptr != m_rtsp_msg_obj)
     {
         delete m_rtsp_msg_obj;
@@ -96,20 +106,45 @@ MiracastRTSPMsg::MiracastRTSPMsg()
     default_configuration = RTSP_DFLT_CLIENT_RTP_PORTS;
     set_WFDClientRTPPorts(default_configuration);
 
-    m_rtsp_msg_handler_thread = new MiracastThread(RTSP_HANDLER_THREAD_NAME, RTSP_HANDLER_THREAD_STACK, RTSP_HANDLER_MSG_COUNT, RTSP_HANDLER_MSGQ_SIZE, reinterpret_cast<void (*)(void *)>(&RTSPMsgHandlerCallback), this);
-    m_rtsp_msg_handler_thread->start();
-
     MIRACASTLOG_TRACE("Exiting...");
 }
 MiracastRTSPMsg::~MiracastRTSPMsg()
 {
+    if ( nullptr != m_rtsp_msg_handler_thread ){
+        delete m_rtsp_msg_handler_thread;
+        m_rtsp_msg_handler_thread = nullptr;
+    }
+
     MIRACASTLOG_TRACE("Entering...");
-    delete m_rtsp_msg_handler_thread;
     if (-1 != m_tcpSockfd){
         close(m_tcpSockfd);
         m_tcpSockfd = -1;
     }
     MIRACASTLOG_TRACE("Exiting...");
+}
+
+MiracastError MiracastRTSPMsg::create_RTSPThread(void)
+{
+    MiracastError error_code = MIRACAST_FAIL;
+    MIRACASTLOG_TRACE("Entering...");
+
+    m_rtsp_msg_handler_thread = new MiracastThread( RTSP_HANDLER_THREAD_NAME,
+                                                    RTSP_HANDLER_THREAD_STACK,
+                                                    RTSP_HANDLER_MSG_COUNT,
+                                                    RTSP_HANDLER_MSGQ_SIZE,
+                                                    reinterpret_cast<void (*)(void *)>(&RTSPMsgHandlerCallback),
+                                                    this);
+    if (nullptr != m_rtsp_msg_handler_thread)
+    {
+        error_code = m_rtsp_msg_handler_thread->start();
+
+        if ( MIRACAST_OK != error_code ){
+            delete m_rtsp_msg_handler_thread;
+            m_rtsp_msg_handler_thread = nullptr;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return error_code;
 }
 
 std::string MiracastRTSPMsg::get_WFDVideoFormat(void)
@@ -1046,7 +1081,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
     MIRACASTLOG_TRACE("Entering...");
 
-    while (true == rtsp_msg_hldr_running_state)
+    while ((nullptr != m_rtsp_msg_handler_thread)&&(true == rtsp_msg_hldr_running_state))
     {
         MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
         m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), THREAD_RECV_MSG_INDEFINITE_WAIT);
@@ -1210,8 +1245,10 @@ void MiracastRTSPMsg::send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES sta
 {
     RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {RTSP_INVALID_ACTION,0};
     MIRACASTLOG_TRACE("Entering...");
-    rtsp_hldr_msgq_data.state = state;
-    m_rtsp_msg_handler_thread->send_message(&rtsp_hldr_msgq_data, RTSP_HANDLER_MSGQ_SIZE);
+    if (nullptr != m_rtsp_msg_handler_thread){
+        rtsp_hldr_msgq_data.state = state;
+        m_rtsp_msg_handler_thread->send_message(&rtsp_hldr_msgq_data, RTSP_HANDLER_MSGQ_SIZE);
+    }
     MIRACASTLOG_TRACE("Exiting...");
 }
 

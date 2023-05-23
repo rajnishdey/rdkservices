@@ -57,6 +57,7 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_GET_ENABLE;
             static const string METHOD_MIRACAST_CLIENT_CONNECT;
             static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
+            static const string METHOD_MIRACAST_TEST_NOTIFIER;
 
             MiracastService();
             virtual ~MiracastService();
@@ -86,6 +87,7 @@ namespace WPEFramework
             uint32_t getEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
+            uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
             void getXCastPlugin();
             int get_XCastFriendlyName(std::string &friendlyname);
 

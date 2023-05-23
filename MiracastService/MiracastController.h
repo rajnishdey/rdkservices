@@ -46,7 +46,8 @@ using namespace MIRACAST;
 class MiracastController
 {
 public:
-    static MiracastController *getInstance(MiracastServiceNotifier *notifier = nullptr);
+    static MiracastController *getInstance( MiracastError &error_code , 
+                                            MiracastServiceNotifier *notifier = nullptr);
     static void destroyInstance();
 
     void event_handler(P2P_EVENTS eventId, void *data, size_t len, bool isIARMEnabled = false);
@@ -67,9 +68,11 @@ public:
     MiracastError disconnect_device();
     void send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STATES state, std::string buffer = "", std::string user_data = "");
     void send_msg_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
+    void send_msgto_test_notifier_thread(uint32_t state);
 
     void Controller_Thread(void *args);
     void ThunderReqHandler_Thread(void *args);
+    void TestNotifier_Thread(void *args);
     // void HDCPTCPServerHandlerThread(void *args);
     // void DumpBuffer(char *buffer, int length);
 
@@ -78,7 +81,7 @@ public:
     void restart_session(bool start_discovering_enabled);
     void stop_session(bool stop_streaming_needed = false);
     std::string get_device_name(std::string mac);
-    MiracastError set_FriendlyName(std::string friendly_name);
+    MiracastError set_FriendlyName(std::string friendly_name , bool apply = false);
     std::string get_FriendlyName(void);
     void set_enable(bool is_enabled);
     void accept_client_connection(std::string is_accepted);
@@ -95,8 +98,8 @@ private:
     std::string start_DHCPClient(std::string interface, std::string &default_gw_ip_addr);
     MiracastError initiate_TCP(std::string go_ip);
     MiracastError connect_Sink();
-    void create_ControllerFramework(void);
-    void destroy_ControllerFramework(void);
+    MiracastError create_ControllerFramework(void);
+    MiracastError destroy_ControllerFramework(void);
 
     void set_localIp(std::string ipAddr);
 
@@ -114,7 +117,9 @@ private:
     MiracastThread *m_thunder_req_handler_thread;
     MiracastThread *m_controller_thread;
     //MiracastThread *m_hdcp_handler_thread;
-
+#ifdef ENABLE_TEST_NOTIFIER
+    MiracastThread  *m_test_notifier_thread;
+#endif
     eCONTROLLER_FW_STATES convertP2PtoSessionActions(P2P_EVENTS eventId);
 };
 

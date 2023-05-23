@@ -31,7 +31,9 @@ const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_ENABLE =
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_GET_ENABLE = "getEnable";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_CLIENT_CONNECT = "acceptClientConnection";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_STOP_CLIENT_CONNECT = "stopClientConnection";
-
+#ifdef ENABLE_TEST_NOTIFIER
+const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
+#endif
 using namespace std;
 
 #define API_VERSION_NUMBER_MAJOR 1
@@ -83,6 +85,9 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_GET_ENABLE, &MiracastService::getEnable, this);
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
+#ifdef	ENABLE_TEST_NOTIFIER
+			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastService::testNotifier, this);
+#endif
 			MIRACAST::logger_init();
 			LOGINFO("Exiting..!!!");
 		}
@@ -154,8 +159,8 @@ namespace WPEFramework
 			LOGINFO("Entering..!!!");
 			if (!m_isServiceInitialized)
 			{
-				m_miracast_ctrler_obj = MiracastController::getInstance(this);
-
+				MiracastError ret_code = MIRACAST_OK;
+				m_miracast_ctrler_obj = MiracastController::getInstance(ret_code,this);
 				if ( nullptr != m_miracast_ctrler_obj ){
 					std::string friendlyname = "";
 
@@ -168,7 +173,33 @@ namespace WPEFramework
 					m_isServiceInitialized = true;
 				}
 				else{
-					msg = "Failed to obtain MiracastController Object";
+					switch (ret_code){
+						case MIRACAST_INVALID_P2P_CTRL_IFACE:
+						{
+							msg = "Invalid P2P Ctrl iface configured";
+						}
+						break;
+						case MIRACAST_CONTROLLER_INIT_FAILED:
+						{
+							msg = "Controller Init Failed";
+						}
+						break;
+						case MIRACAST_P2P_INIT_FAILED:
+						{
+							msg = "P2P Init Failed";
+						}
+						break;
+						case MIRACAST_RTSP_INIT_FAILED:
+						{
+							msg = "RTSP msg handler Init Failed";
+						}
+						break;
+						default:
+						{
+							msg = "Unknown Error:Failed to obtain MiracastController Object";
+						}
+						break;
+					}
 				}
 			}
 
@@ -345,6 +376,44 @@ namespace WPEFramework
 
 			returnResponse(success);
 		}
+#ifdef ENABLE_TEST_NOTIFIER
+		/**
+		 * @brief This method used to stop the client connection.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastService::testNotifier(const JsonObject &parameters, JsonObject &response)
+		{
+			bool success = false;
+			uint32_t state;
+
+			LOGINFO("Entering..!!!");
+
+			if (parameters.HasLabel("state"))
+			{
+				getNumberParameter("state", state);
+
+				if ((TEST_NOTIFIER_INVALID_STATE < state ) &&
+					( TEST_NOTIFIER_SHUTDOWN > state )){
+					m_miracast_ctrler_obj->send_msgto_test_notifier_thread(state);
+					success = true;
+				}
+				else{
+					LOGERR("Invalid state passed");
+					response["message"] = "Invalid state passed";
+				}
+			}
+			else
+			{
+				LOGERR("Invalid parameter passed");
+				response["message"] = "Invalid parameter passed";
+			}
+			LOGINFO("Exiting..!!!");
+
+			returnResponse(success);
+		}
+#endif/*ENABLE_TEST_NOTIFIER*/
 
 		void MiracastService::onMiracastServiceClientConnectionRequest(string client_mac, string client_name)
 		{
