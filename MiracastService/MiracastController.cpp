@@ -915,7 +915,6 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_GO_NEG_FAILURE:
                     case CONTROLLER_GO_GROUP_FORMATION_FAILURE:
                     {
-                        std::string device_name = "";
                         if ( CONTROLLER_GO_GROUP_STARTED == controller_msgq_data.state )
                         {
                             MIRACASTLOG_TRACE("CONTROLLER_GO_GROUP_STARTED Received\n");
@@ -931,8 +930,6 @@ void MiracastController::Controller_Thread(void *args)
                                 m_groupInfo->goIPAddr = parse_p2p_event_data(event_buffer.c_str(), "go_ip_addr");
                                 m_groupInfo->goDevAddr = parse_p2p_event_data(event_buffer.c_str(), "go_dev_addr");
                                 m_groupInfo->SSID = parse_p2p_event_data(event_buffer.c_str(), "ssid");
-
-                                device_name = get_device_name(m_groupInfo->goDevAddr);
 
                                 size_t found_client = event_buffer.find("client");
                                 m_groupInfo->interface = event_buffer.substr(found_space, found_client - found_space);
@@ -994,8 +991,11 @@ void MiracastController::Controller_Thread(void *args)
                         }
 
                         if ( true == session_restart_required ){
-                            if (nullptr != m_notify_handler){
-                                m_notify_handler->onMiracastServiceClientConnectionError(m_groupInfo->goDevAddr, device_name);
+                            if ((nullptr != m_rtsp_msg) && (nullptr != m_notify_handler))
+                            {
+                                std::string mac_address = m_rtsp_msg->get_WFDSourceMACAddress();
+                                std::string device_name = m_rtsp_msg->get_WFDSourceName();
+                                m_notify_handler->onMiracastServiceClientConnectionError( mac_address , device_name);
                             }
                             restart_session(start_discovering_enabled);
                             session_restart_required = false;
@@ -1395,6 +1395,32 @@ bool MiracastController::stop_client_connection(std::string mac_address)
     send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, mac_address);
     MIRACASTLOG_TRACE("Exiting...");
     return true;
+}
+
+bool MiracastController::set_WFDVideoFormat( RTSP_WFD_VIDEO_FMT_STRUCT video_fmt )
+{
+    bool ret = false;
+    MIRACASTLOG_TRACE("Entering...");
+
+    if ( nullptr != m_rtsp_msg )
+    {
+        ret = m_rtsp_msg->set_WFDVideoFormat(video_fmt);
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}
+
+bool MiracastController::set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT audio_fmt )
+{
+    bool ret = false;
+    MIRACASTLOG_TRACE("Entering...");
+
+    if ( nullptr != m_rtsp_msg )
+    {
+        ret = m_rtsp_msg->set_WFDAudioCodecs(audio_fmt);
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
 }
 
 void ThunderReqHandlerCallback(void *args)

@@ -86,6 +86,8 @@ public:
     void set_enable(bool is_enabled);
     void accept_client_connection(std::string is_accepted);
     bool stop_client_connection(std::string mac_address);
+    bool set_WFDVideoFormat( RTSP_WFD_VIDEO_FMT_STRUCT video_fmt );
+    bool set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt );
 
 private:
     static MiracastController *m_miracast_ctrl_obj;

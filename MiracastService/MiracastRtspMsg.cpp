@@ -80,19 +80,27 @@ void MiracastRTSPMsg::destroyInstance()
 
 MiracastRTSPMsg::MiracastRTSPMsg()
 {
-    MIRACASTLOG_TRACE("Entering...");
-    m_tcpSockfd = -1;
+    RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt = {0};
+    RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {0};
     std::string default_configuration;
 
+    MIRACASTLOG_TRACE("Entering...");
+    m_tcpSockfd = -1;
     m_current_sequence_number.clear();
 
     set_WFDEnableDisableUnicast(true);
 
-    default_configuration = RTSP_DFLT_VIDEO_FORMATS;
-    set_WFDVideoFormat(default_configuration);
+    st_video_fmt.preferred_display_mode_supported = RTSP_PREFERED_DISPLAY_NOT_SUPPORTED;
+    st_video_fmt.st_h264_codecs.profile = RTSP_PROFILE_BMP_CHP_SUPPORTED;
+    st_video_fmt.st_h264_codecs.level = RTSP_H264_LEVEL_4_BITMAP;
+    st_video_fmt.st_h264_codecs.cea_mask = RTSP_CEA_RESOLUTION_1920x1080p30;
+    st_video_fmt.st_h264_codecs.video_frame_rate_change_support = true;
 
-    default_configuration = RTSP_DFLT_AUDIO_FORMATS;
-    set_WFDAudioCodecs(default_configuration);
+    st_audio_fmt.audio_format = RTSP_AAC_AUDIO_FORMAT;
+    st_audio_fmt.modes = RTSP_AAC_CH2_48kHz|RTSP_AAC_CH4_48kHz|RTSP_AAC_CH6_48kHz;
+
+    set_WFDVideoFormat(st_video_fmt);
+    set_WFDAudioCodecs(st_audio_fmt);
 
     default_configuration = RTSP_DFLT_CONTENT_PROTECTION;
     set_WFDContentProtection(default_configuration);
@@ -221,16 +229,133 @@ std::string MiracastRTSPMsg::get_CurrentWFDSessionNumber(void)
     return m_wfd_session_number;
 }
 
-bool MiracastRTSPMsg::set_WFDVideoFormat(std::string video_formats)
+bool MiracastRTSPMsg::set_WFDVideoFormat(RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt)
 {
-    m_wfd_video_formats = video_formats;
+    char video_format_buffer[256] = {0};
+    uint8_t video_frame_control_support = 0x00;
+
+    MIRACASTLOG_TRACE("Entering...");
+    memset(&m_wfd_video_formats_st , 0x00 , sizeof(RTSP_WFD_VIDEO_FMT_STRUCT));
+    m_wfd_video_formats.clear();
+
+    if ((RTSP_CEA_RESOLUTION_UNSUPPORTED_MASK & st_video_fmt.st_h264_codecs.cea_mask)||
+        (RTSP_VESA_RESOLUTION_UNSUPPORTED_MASK & st_video_fmt.st_h264_codecs.vesa_mask)||
+        (RTSP_HH_RESOLUTION_UNSUPPORTED_MASK & st_video_fmt.st_h264_codecs.hh_mask))
+    {
+        MIRACASTLOG_ERROR("Invalid video format[%#08X]...\n",st_video_fmt.st_h264_codecs.hh_mask);
+        MIRACASTLOG_TRACE("Exiting...");
+        return false;
+    }
+    memcpy(&m_wfd_video_formats_st , &st_video_fmt , sizeof(RTSP_WFD_VIDEO_FMT_STRUCT));
+
+    // Set the 0th bit to 1
+    if (st_video_fmt.st_h264_codecs.video_frame_skip_support){
+        video_frame_control_support |= 0x01; // 0th bit set
+    }
+
+    // Set the 4th bit to 1
+    if (st_video_fmt.st_h264_codecs.video_frame_rate_change_support){
+        video_frame_control_support |= 0x10; // 4th bit set
+    }
+
+    // Set the 1st to 3rd bits based on the value of skip_intervals
+    video_frame_control_support |= ((0x07 & st_video_fmt.st_h264_codecs.max_skip_intervals) << 1); // 1:3 bits for intervals
+
+    sprintf( video_format_buffer , 
+                "%02x %02x %02x %02x %08x %08x %08x %02x %04x %04x %02x ",
+                st_video_fmt.native,
+                st_video_fmt.preferred_display_mode_supported,
+                st_video_fmt.st_h264_codecs.profile,
+                st_video_fmt.st_h264_codecs.level,
+                st_video_fmt.st_h264_codecs.cea_mask,
+                st_video_fmt.st_h264_codecs.vesa_mask,
+                st_video_fmt.st_h264_codecs.hh_mask,
+                st_video_fmt.st_h264_codecs.latency,
+                st_video_fmt.st_h264_codecs.min_slice,
+                st_video_fmt.st_h264_codecs.slice_encode,
+                video_frame_control_support );
+    m_wfd_video_formats = video_format_buffer;
+
+    if (( -1 == st_video_fmt.st_h264_codecs.max_hres )||
+        ( -1 == st_video_fmt.st_h264_codecs.max_vres )||
+        ( 0 == st_video_fmt.preferred_display_mode_supported))
+    {
+        m_wfd_video_formats.append("none");
+        m_wfd_video_formats.append(" ");
+        m_wfd_video_formats.append("none");
+    }
+    else{
+        memset( video_format_buffer , 0x00 , sizeof(video_format_buffer));
+        sprintf( video_format_buffer , 
+                    "%04x %04x",
+                    st_video_fmt.st_h264_codecs.max_hres,
+                    st_video_fmt.st_h264_codecs.max_vres );
+        m_wfd_video_formats.append(video_format_buffer);
+    }
+
+    MIRACASTLOG_TRACE("video format[%s]...\n",m_wfd_video_formats.c_str());
+    MIRACASTLOG_TRACE("Exiting...");
     return true;
 }
 
-bool MiracastRTSPMsg::set_WFDAudioCodecs(std::string audio_codecs)
+bool MiracastRTSPMsg::set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt )
 {
-    m_wfd_audio_codecs = audio_codecs;
-    return true;
+    char audio_format_buffer[256] = {0};
+    std::string audio_format_str = "";
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    memset(&m_wfd_audio_formats_st , 0x00 , sizeof(RTSP_WFD_AUDIO_FMT_STRUCT));
+    m_wfd_audio_codecs.clear();
+
+    if (((0 != st_audio_fmt.audio_format) &&
+        (RTSP_UNSUPPORTED_AUDIO_FORMAT < st_audio_fmt.audio_format))||
+        ((RTSP_LPCM_AUDIO_FORMAT == st_audio_fmt.audio_format) &&
+        (RTSP_LPCM_UNSUPPORTED_MASK & st_audio_fmt.modes))||
+        ((RTSP_AAC_AUDIO_FORMAT == st_audio_fmt.audio_format) &&
+        (RTSP_AAC_UNSUPPORTED_MASK & st_audio_fmt.modes))||
+        ((RTSP_AC3_AUDIO_FORMAT == st_audio_fmt.audio_format) &&
+        (RTSP_AC3_UNSUPPORTED_MASK & st_audio_fmt.modes)))
+    {
+        MIRACASTLOG_ERROR("Invalid audio format/mode[%#08X/%#08X]...\n",st_audio_fmt.modes,st_audio_fmt.modes);
+        MIRACASTLOG_TRACE("Exiting...");
+        return false;
+    }
+
+    switch (st_audio_fmt.audio_format)
+    {
+        case RTSP_LPCM_AUDIO_FORMAT:
+        {
+            audio_format_str = "LPCM";
+        }
+        break;
+        case RTSP_AAC_AUDIO_FORMAT:
+        {
+            audio_format_str = "AAC";
+        }
+        break;
+        case RTSP_AC3_AUDIO_FORMAT:
+        {
+            audio_format_str = "AC3";
+        }
+        break;
+        default:
+        {
+            return false;
+        }
+        break;
+    }
+    memcpy(&m_wfd_audio_formats_st , &st_audio_fmt , sizeof(RTSP_WFD_AUDIO_FMT_STRUCT));
+
+    sprintf( audio_format_buffer , 
+                "%s %08x %02x",
+                audio_format_str.c_str(),
+                st_audio_fmt.modes,
+                st_audio_fmt.latency);
+    m_wfd_audio_codecs = audio_format_buffer;
+
+    MIRACASTLOG_TRACE("audio format[%s]...\n",m_wfd_audio_codecs.c_str());
+    MIRACASTLOG_TRACE("Exiting...");    return true;
 }
 
 bool MiracastRTSPMsg::set_WFDClientRTPPorts(std::string client_rtp_ports)
