@@ -235,11 +235,19 @@ bool MiracastPlayer::createPipeline()
     g_object_set(m_pipeline, "uri", (const gchar *)m_uri.c_str(), nullptr);
 
     m_video_sink = gst_element_factory_make("westerossink", NULL);
-    
+
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
     {
-        MIRACASTLOG_INFO("Set immediate-output as TRUE \n");
-	    g_object_set(G_OBJECT(m_video_sink), "immediate-output", TRUE, nullptr);
+        g_object_set(G_OBJECT(m_video_sink), "immediate-output", FALSE, nullptr);
+        MIRACASTLOG_INFO("Set immediate-output as FALSE \n");
+    }
+    if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "avsync-mode")){
+        g_object_set(G_OBJECT(m_video_sink), "avsync-mode", 1, nullptr);
+        MIRACASTLOG_INFO("Set avsync-mode as 1 \n");
+    }
+    if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "avsync-session")){
+        g_object_set(G_OBJECT(m_video_sink), "avsync-session", 0, nullptr);
+        MIRACASTLOG_INFO("Set avsync-session as 0 \n");
     }
     g_object_set(m_pipeline, "video-sink", m_video_sink, NULL);
 
