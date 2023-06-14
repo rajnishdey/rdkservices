@@ -238,7 +238,7 @@ bool MiracastPlayer::createPipeline()
     
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
     {
-      	MIRACASTLOG_ERROR(LOG_WARNING, "Set immediate-output as TRUE \n");
+        MIRACASTLOG_INFO("Set immediate-output as TRUE \n");
 	    g_object_set(G_OBJECT(m_video_sink), "immediate-output", TRUE, nullptr);
     }
     g_object_set(m_pipeline, "video-sink", m_video_sink, NULL);
@@ -285,16 +285,49 @@ void *MiracastPlayer::playbackThread(void *ctx)
 
 void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
 {
+    bool isInteger = true;
     MIRACASTLOG_TRACE("Entering..!!!");
     MiracastPlayer *self = (MiracastPlayer *)ctx;
     
     /* Read Player stats if this /opt/miracast_player_stats flag is present */
     /* Read also confiurable timer from some file */
-    int time_interval_sec = 300;
+    int time_interval_sec = 60;
     while (true)
     {
-        if (0 == access("/opt/miracast_player_stats", F_OK)){
-            self->get_player_statistics();
+        isInteger = true;
+        time_interval_sec = 10;
+        std::ifstream player_stats_monitor_delay("/opt/miracast_player_stats"); // Assuming the input file is named "input.txt"
+
+        if (!player_stats_monitor_delay) {
+            MIRACASTLOG_ERROR("Failed to open /opt/miracast_player_stats file\n");
+        }
+        else{
+            std::string word;
+            player_stats_monitor_delay >> word;
+            player_stats_monitor_delay.close();
+
+            if (word.empty())
+            {
+                isInteger = false;
+            }
+            else
+            {
+                for (char c : word) {
+                    if (!isdigit(c)) {
+                        isInteger = false;
+                        break;
+                    }
+                }
+            }
+
+            if (isInteger && (time_interval_sec = std::atoi(word.c_str())))
+            {
+                self->get_player_statistics();
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("The content of the file is not an integer\n");
+            }
         }
         sleep(time_interval_sec);
     }
