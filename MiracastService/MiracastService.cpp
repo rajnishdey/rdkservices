@@ -144,7 +144,7 @@ namespace WPEFramework
 
                 string query = "token=" + token;
                 Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-                m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T(SYSTEM_CALLSIGN_VER)), false, query);
+                m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T("MiracastService")), false, query);
 				if (nullptr == m_SystemPluginObj)
 				{
 					LOGERR("JSONRPC: %s: initialization failed", SYSTEM_CALLSIGN_VER);
