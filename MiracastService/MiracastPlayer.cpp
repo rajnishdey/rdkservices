@@ -236,6 +236,7 @@ bool MiracastPlayer::createPipeline()
 
     m_video_sink = gst_element_factory_make("westerossink", NULL);
 
+#if 0
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
     {
         g_object_set(G_OBJECT(m_video_sink), "immediate-output", FALSE, nullptr);
@@ -249,6 +250,7 @@ bool MiracastPlayer::createPipeline()
         g_object_set(G_OBJECT(m_video_sink), "avsync-session", 0, nullptr);
         MIRACASTLOG_INFO("Set avsync-session as 0 \n");
     }
+#endif
     g_object_set(m_pipeline, "video-sink", m_video_sink, NULL);
 
     bus = gst_element_get_bus(m_pipeline);
@@ -511,25 +513,49 @@ bool MiracastPlayer::seekTo(double seconds)
     return ret;
 }
 
+void MiracastPlayer::print_pipeline_state()
+{
+    MIRACASTLOG_TRACE("Entering..!!!");
+    if ( nullptr == m_pipeline )
+    {
+        MIRACASTLOG_ERROR("m_pipeline is NULL. Can't proceed with print_pipeline_state(). \n");
+    }
+    else
+    {
+        GstState current, pending;
+        GstStateChangeReturn ret_state = GST_STATE_CHANGE_FAILURE;
+        current = pending = GST_STATE_VOID_PENDING;
+
+        ret_state = gst_element_get_state(m_pipeline, &current, &pending, 0);
+        MIRACASTLOG_VERBOSE("\nPipeline State - Current:[%s], Pending:[%s],Ret:[%d]\n",
+                            gst_element_state_get_name(current),gst_element_state_get_name(pending),ret_state);
+    }
+    MIRACASTLOG_TRACE("Exiting..!!!");
+}
+
 bool MiracastPlayer::get_player_statistics()
 {
     MIRACASTLOG_TRACE("Entering..!!!");	
     GstStructure *stats = NULL;
     bool ret = true;
-    if(m_video_sink == NULL)
+
+    if (nullptr == m_video_sink )
     {
-        MIRACASTLOG_VERBOSE("video-sink is NULL. Can't proceed with getPlayerStatistics(). \n");
+        MIRACASTLOG_ERROR("video-sink is NULL. Can't proceed with getPlayerStatistics(). \n");
         return false;
     }
-    
+    MIRACASTLOG_VERBOSE("\n============= Player Statistics =============\n");
+
     double cur_position = getCurrentPosition();
-    
-    g_object_get( G_OBJECT(m_video_sink), "stats", &stats, NULL ); 
+
+    g_object_get( G_OBJECT(m_video_sink), "stats", &stats, NULL );
+
     if ( stats )
     {
         guint64 render_frame = 0;
         guint64 dropped_frame = 0;
         const GValue *val = NULL;
+
         /* Get Rendered Frames*/
         val = gst_structure_get_value( stats, (const gchar *)"rendered" );
         if ( val )
@@ -546,14 +572,15 @@ bool MiracastPlayer::get_player_statistics()
         
         guint64 total_video_frames = render_frame + dropped_frame;
         guint64 dropped_video_frames = dropped_frame;
-        MIRACASTLOG_VERBOSE("========== Player Statistics ====== ");
-        MIRACASTLOG_VERBOSE(" Current PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu]\n",
+
+        MIRACASTLOG_VERBOSE("\nCurrent PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu]\n",
                             cur_position,
                             total_video_frames,
                             render_frame,
                             dropped_video_frames);
-        MIRACASTLOG_VERBOSE("================================== ");
      }
+     print_pipeline_state();
+     MIRACASTLOG_VERBOSE("\n=============================================\n");
      MIRACASTLOG_TRACE("Exiting..!!!");	
      return ret;
 }

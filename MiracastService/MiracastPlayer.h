@@ -43,6 +43,7 @@ public:
     bool seekTo(double seconds);
     double get_current_position();
     bool get_player_statistics();
+    void print_pipeline_state();
 
 private:
     GstElement *m_pipeline{nullptr};
