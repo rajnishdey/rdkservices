@@ -336,52 +336,71 @@ std::string MiracastController::parse_p2p_event_data(const char *tmpBuff, const 
 std::string MiracastController::start_DHCPClient(std::string interface, std::string &default_gw_ip_addr)
 {
     MIRACASTLOG_TRACE("Entering...");
-    FILE *fp;
-    std::string IP;
-    char command[128] = {0};
     char data[1024] = {0};
-    size_t len = 0;
-    char *ln = nullptr;
-    std::string local_addr = "";
+    char command[128] = {0};
+    char sys_cls_file_ifidx[128] = {0};
+    std::string leaseof_str = "lease of ",
+                gw_str = "route add default gw ",
+                local_addr = "",
+                popen_buffer = "";
+    FILE *popen_file_ptr = nullptr;
+    char *current_line_buffer = nullptr;
+    std::size_t len = 0,
+                local_ip_pos = 0,
+                gw_pos = 0;
+    unsigned char retry_count = 3;
+
+    sprintf( sys_cls_file_ifidx , "/sys/class/net/%s/ifindex" , interface.c_str());
+
+    std::ifstream ifIndexFile(sys_cls_file_ifidx);
+
+    if (!ifIndexFile.good()) {
+        MIRACASTLOG_ERROR("Could not find [%s]\n",sys_cls_file_ifidx);
+        return std::string("");
+    }
 
     sprintf(command, "/sbin/udhcpc -v -i ");
     sprintf(command + strlen(command), interface.c_str());
     sprintf(command + strlen(command), " 2>&1");
 
     MIRACASTLOG_VERBOSE("command : [%s]", command);
-
-    fp = popen(command, "r");
-
-    if (!fp)
-    {
-        MIRACASTLOG_ERROR("Could not open pipe for output.");
-    }
-    else
-    {
-        while (getline(&ln, &len, fp) != -1)
+    while ( retry_count-- ){
+        popen_file_ptr = popen(command, "r");
+        if (!popen_file_ptr)
         {
-            sprintf(data + strlen(data), ln);
-            MIRACASTLOG_VERBOSE("data : [%s]", data);
+            MIRACASTLOG_ERROR("Could not open pipe for output.");
         }
-        pclose(fp);
+        else
+        {
+            memset( data , 0x00 , sizeof(data));
+            while (getline(&current_line_buffer, &len, popen_file_ptr) != -1)
+            {
+                sprintf(data + strlen(data), current_line_buffer);
+                MIRACASTLOG_VERBOSE("data : [%s]", data);
+            }
+            pclose(popen_file_ptr);
+            popen_file_ptr = nullptr;
 
-        std::string popen_buffer = data;
+            popen_buffer = data;
 
-        MIRACASTLOG_VERBOSE("popen_buffer is %s\n", popen_buffer.c_str());
+            MIRACASTLOG_VERBOSE("popen_buffer is %s\n", popen_buffer.c_str());
 
-        std::string leaseof_str = "lease of ";
-        std::string gw_str = "route add default gw ";
+            local_ip_pos = popen_buffer.find(leaseof_str.c_str()) + leaseof_str.length();
+            local_addr = popen_buffer.substr(local_ip_pos, popen_buffer.find(" obtained") - local_ip_pos);
+            MIRACASTLOG_VERBOSE("local IP addr obtained is %s\n", local_addr.c_str());
 
-        std::size_t local_ip_pos = popen_buffer.find(leaseof_str.c_str()) + leaseof_str.length();
-        local_addr = popen_buffer.substr(local_ip_pos, popen_buffer.find(" obtained") - local_ip_pos);
-        MIRACASTLOG_VERBOSE("local IP addr obtained is %s\n", local_addr.c_str());
+            /* Here retrieved the default gw ip address. Later it can be used as GO IP address if P2P-GROUP started as PERSISTENT */
+            gw_pos = popen_buffer.find(gw_str.c_str()) + gw_str.length();
+            default_gw_ip_addr = popen_buffer.substr(gw_pos, popen_buffer.find(" dev") - gw_pos);
+            MIRACASTLOG_VERBOSE("default_gw_ip_addr obtained is %s\n", default_gw_ip_addr.c_str());
+            free(current_line_buffer);
+            current_line_buffer = nullptr;
 
-        /* Here retrieved the default gw ip address. Later it can be used as GO IP address if P2P-GROUP started as PERSISTENT */
-        std::size_t gw_pos = popen_buffer.find(gw_str.c_str()) + gw_str.length();
-        default_gw_ip_addr = popen_buffer.substr(gw_pos, popen_buffer.find(" dev") - gw_pos);
-        MIRACASTLOG_VERBOSE("default_gw_ip_addr obtained is %s\n", default_gw_ip_addr.c_str());
-
-        free(ln);
+            if (!local_addr.empty()){
+                MIRACASTLOG_VERBOSE("%s is success\n", command);
+                break;
+            }
+        }
     }
     MIRACASTLOG_TRACE("Exiting...");
     return local_addr;

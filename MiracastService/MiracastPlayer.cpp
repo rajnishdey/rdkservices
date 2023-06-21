@@ -63,7 +63,7 @@ void MiracastPlayer::destroyInstance()
 MiracastPlayer::MiracastPlayer()
 {
     MIRACASTLOG_TRACE("Entering...");
-    gst_init(NULL, NULL);
+    gst_init(nullptr, nullptr);
     m_bBuffering = false;
     m_bReady = false;
     m_currentPosition = 0.0f;
@@ -234,7 +234,7 @@ bool MiracastPlayer::createPipeline()
 
     g_object_set(m_pipeline, "uri", (const gchar *)m_uri.c_str(), nullptr);
 
-    m_video_sink = gst_element_factory_make("westerossink", NULL);
+    m_video_sink = gst_element_factory_make("westerossink", nullptr);
 
 #if 0
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
@@ -251,15 +251,15 @@ bool MiracastPlayer::createPipeline()
         MIRACASTLOG_INFO("Set avsync-session as 0 \n");
     }
 #endif
-    g_object_set(m_pipeline, "video-sink", m_video_sink, NULL);
+    g_object_set(m_pipeline, "video-sink", m_video_sink, nullptr);
 
     bus = gst_element_get_bus(m_pipeline);
     m_bus_watch_id = gst_bus_add_watch(bus, (GstBusFunc)busMessageCb, this);
     gst_object_unref(bus);
 
     g_main_context_pop_thread_default(m_main_loop_context);
-    pthread_create(&m_playback_thread, NULL, MiracastPlayer::playbackThread, this);
-    pthread_create(&m_player_statistics_tid, NULL, MiracastPlayer::monitor_player_statistics_thread, this);
+    pthread_create(&m_playback_thread, nullptr, MiracastPlayer::playbackThread, this);
+    pthread_create(&m_player_statistics_tid, nullptr, MiracastPlayer::monitor_player_statistics_thread, this);
 
     MIRACASTLOG_TRACE("Start Playing.");
 
@@ -290,7 +290,7 @@ void *MiracastPlayer::playbackThread(void *ctx)
     g_main_loop_run(self->m_main_loop);
     self->m_playback_thread = 0;
     MIRACASTLOG_TRACE("Exiting..!!!");
-    pthread_exit(NULL);
+    pthread_exit(nullptr);
 }
 
 void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
@@ -343,7 +343,7 @@ void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
     }
     self->m_player_statistics_tid = 0;
     MIRACASTLOG_TRACE("Exiting..!!!");
-    pthread_exit(NULL);
+    pthread_exit(nullptr);
 }
 
 gboolean MiracastPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data)
@@ -536,7 +536,7 @@ void MiracastPlayer::print_pipeline_state()
 bool MiracastPlayer::get_player_statistics()
 {
     MIRACASTLOG_TRACE("Entering..!!!");	
-    GstStructure *stats = NULL;
+    GstStructure *stats = nullptr;
     bool ret = true;
 
     if (nullptr == m_video_sink )
@@ -548,30 +548,32 @@ bool MiracastPlayer::get_player_statistics()
 
     double cur_position = getCurrentPosition();
 
-    g_object_get( G_OBJECT(m_video_sink), "stats", &stats, NULL );
+    g_object_get( G_OBJECT(m_video_sink), "stats", &stats, nullptr );
 
     if ( stats )
     {
-        guint64 render_frame = 0;
-        guint64 dropped_frame = 0;
-        const GValue *val = NULL;
+        const GValue *value = nullptr;
+        guint64 render_frame = 0,
+                dropped_frame = 0,
+                total_video_frames = 0,
+                dropped_video_frames = 0;
 
         /* Get Rendered Frames*/
-        val = gst_structure_get_value( stats, (const gchar *)"rendered" );
-        if ( val )
+        value = gst_structure_get_value( stats, (const gchar *)"rendered" );
+        if ( value )
         {
-           render_frame = g_value_get_uint64( val );
+           render_frame = g_value_get_uint64( value );
         }
         /* Get Dropped Frames*/
-        val = gst_structure_get_value( stats, (const gchar *)"dropped" );
-        if ( val )
+        value = gst_structure_get_value( stats, (const gchar *)"dropped" );
+        if ( value )
         {
-           dropped_frame = g_value_get_uint64( val );
+           dropped_frame = g_value_get_uint64( value );
         }
         gst_structure_free( stats );
         
-        guint64 total_video_frames = render_frame + dropped_frame;
-        guint64 dropped_video_frames = dropped_frame;
+        total_video_frames = render_frame + dropped_frame;
+        dropped_video_frames = dropped_frame;
 
         MIRACASTLOG_VERBOSE("\nCurrent PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu]\n",
                             cur_position,
