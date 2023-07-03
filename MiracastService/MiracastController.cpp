@@ -24,6 +24,9 @@ void ThunderReqHandlerCallback(void *args);
 void ControllerThreadCallback(void *args);
 void TestNotifierThreadCallback(void *args);
 
+//#define UDHCPD_BASED_DHCP_SERVER_ENABLED
+#define DNSMASQ_BASED_DHCP_SERVER_ENABLED
+
 MiracastController *MiracastController::m_miracast_ctrl_obj{nullptr};
 
 MiracastThread::MiracastThread(std::string thread_name, size_t stack_size, size_t msg_size, size_t queue_depth, void (*callback)(void *), void *user_data)
@@ -194,6 +197,7 @@ MiracastController::MiracastController(void)
     m_rtsp_msg = nullptr;
     m_thunder_req_handler_thread = nullptr;
     m_controller_thread = nullptr;
+    m_tcpserverSockfd = -1;
 
     MIRACASTLOG_TRACE("Exiting...");
 }
@@ -406,6 +410,115 @@ std::string MiracastController::start_DHCPClient(std::string interface, std::str
     return local_addr;
 }
 
+MiracastError MiracastController::start_DHCPServer(std::string interface)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    std::string command = "";
+
+    command = "ifconfig ";
+    command.append(interface.c_str());
+    command.append(" 192.168.59.1 netmask 255.255.255.0 up");
+
+    MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
+    system(command.c_str());
+#if defined(UDHCPD_BASED_DHCP_SERVER_ENABLED)
+    command = "ps -ax | grep \"udhcpd\" | grep \"miracast\" | awk '{print $1}' | xargs kill -9";
+
+    system(command.c_str());
+    MIRACASTLOG_VERBOSE("command : [%s]\n",command.c_str());
+
+    system("cp /opt/miracast/udhcpd.conf /opt/secure/wifi/udhcpd_miracast.conf -f");
+
+    command = "sed -i 's/NEW_P2P_GRP_IFACE/";
+    command.append(interface.c_str());
+    command.append("/g' /opt/secure/wifi/udhcpd_miracast.conf");
+
+    system(command.c_str());
+    MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
+
+    command = "udhcpd -S ";
+    command.append("/opt/secure/wifi/udhcpd_miracast.conf");
+#elif defined(DNSMASQ_BASED_DHCP_SERVER_ENABLED)
+    std::ifstream custom_dnsmasq_commands("/opt/miracast_custom_dnsmasq");
+    std::string mcast_dnsmasq;
+    if (custom_dnsmasq_commands.is_open())
+    {
+        std::getline(custom_dnsmasq_commands, mcast_dnsmasq);
+        MIRACASTLOG_INFO("dnsmasq reading from file [/opt/miracast_custom_dnsmasq] as [ %s] ", mcast_dnsmasq.c_str());
+        custom_dnsmasq_commands.close();
+        command = mcast_dnsmasq;
+        command.append(" -i ");
+        command.append(interface.c_str());
+    }
+    else
+    {
+        command = "ps -ax | awk '/dnsmasq -p0 -i/ && !/grep/ {print $1}' | xargs kill -9";
+
+        MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
+        system(command.c_str());
+
+        command = "/usr/bin/dnsmasq -p0 -i ";
+        command.append(interface.c_str());
+        command.append(" -F 192.168.59.50,192.168.59.230,255.255.255.0,24h --log-queries=extra");
+    }
+#endif
+    MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
+    system(command.c_str());
+
+    command = "wpa_cli -i ";
+    command.append(interface.c_str());
+    command.append(" wps_pbc");
+
+    MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
+    system(command.c_str());
+
+    struct sockaddr_in serverAddress;
+
+    if ( -1 != m_tcpserverSockfd ){
+        close( m_tcpserverSockfd );
+        m_tcpserverSockfd = -1;
+    }
+
+    // Create socket
+    m_tcpserverSockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_tcpserverSockfd < 0) {
+        MIRACASTLOG_ERROR("Error opening socket");
+        return MIRACAST_FAIL;
+    }
+
+    // Make the socket non-blocking
+    int flags = fcntl(m_tcpserverSockfd, F_GETFL, 0);
+    fcntl(m_tcpserverSockfd, F_SETFL, flags | O_NONBLOCK);
+
+    memset(&serverAddress, 0, sizeof(serverAddress));
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_port = htons(7236);
+
+    // Bind the socket to the specified address and port
+    if (bind(m_tcpserverSockfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+        MIRACASTLOG_ERROR("Binding failed");
+        close(m_tcpserverSockfd);
+        m_tcpserverSockfd = -1;
+        return MIRACAST_FAIL;
+    }
+
+    // Listen for incoming connections
+    if (listen(m_tcpserverSockfd, 5) < 0) {
+        MIRACASTLOG_ERROR("Error listening");
+        close(m_tcpserverSockfd);
+        m_tcpserverSockfd = -1;
+        return MIRACAST_FAIL;
+    }
+
+    MIRACASTLOG_VERBOSE("Listening for incoming connections...\n");
+
+    MIRACASTLOG_TRACE("Exiting...");
+
+    return MIRACAST_OK;
+}
+
 MiracastError MiracastController::initiate_TCP(std::string goIP)
 {
     MIRACASTLOG_TRACE("Entering...");
@@ -517,6 +630,10 @@ void MiracastController::stop_session(bool stop_streaming_needed)
     stop_discover_devices();
     if (m_groupInfo)
     {
+        if (( true == m_groupInfo->isGO )&&(nullptr != m_p2p_ctrl_obj))
+        {
+            m_p2p_ctrl_obj->remove_GroupInterface( m_groupInfo->interface );
+        }
         delete m_groupInfo;
         m_groupInfo = nullptr;
     }
@@ -959,7 +1076,7 @@ void MiracastController::Controller_Thread(void *args)
                                     std::string tcpdump;
                                     tcpdump.append("tcpdump -i ");
                                     tcpdump.append(m_groupInfo->interface);
-                                    tcpdump.append(" -s 65535 -w /opt/dump.pcap &");
+                                    tcpdump.append(" -s 65535 -w /opt/p2p_cli_dump.pcap &");
                                     MIRACASTLOG_VERBOSE("Dump command to execute - %s", tcpdump.c_str());
                                     system(tcpdump.c_str());
                                 }
@@ -999,8 +1116,96 @@ void MiracastController::Controller_Thread(void *args)
                             }
                             else
                             {
+                                std::string remote_address = "";
                                 size_t found_go = event_buffer.find("GO");
                                 m_groupInfo->interface = event_buffer.substr(found_space, found_go - found_space);
+                                m_groupInfo->goDevAddr = parse_p2p_event_data(event_buffer.c_str(), "go_dev_addr");
+                                REMOVE_SPACES(m_groupInfo->interface);
+
+                                if (getenv("GET_PACKET_DUMP") != nullptr)
+                                {
+                                    std::string tcpdump;
+                                    tcpdump.append("tcpdump -i ");
+                                    tcpdump.append(m_groupInfo->interface);
+                                    tcpdump.append(" -s 65535 -w /opt/p2p_go_dump.pcap &");
+                                    MIRACASTLOG_VERBOSE("Dump command to execute - %s", tcpdump.c_str());
+                                    system(tcpdump.c_str());
+                                }
+
+                                start_DHCPServer( m_groupInfo->interface );
+
+                                if (nullptr != m_rtsp_msg)
+                                {
+                                    std::string mac_address = m_rtsp_msg->get_WFDSourceMACAddress();
+                                    char data[1024] = {0};
+                                    char command[128] = {0};
+                                    std::string popen_buffer = "";
+                                    FILE *popen_file_ptr = nullptr;
+                                    char *current_line_buffer = nullptr;
+                                    std::size_t len = 0;
+                                    unsigned char retry_count = 5;
+
+                                    //system("dumpleases -f /var/lib/misc/udhcpd.leases | awk 'NR>1 {print $2}' | xargs -n 1 ping -c 1 &");
+
+                                    sprintf( command,
+                                             "cat /proc/net/arp | grep \"%s\" | awk '{print $1}'",
+                                             m_groupInfo->interface.c_str());
+
+                                    while ( retry_count-- ){
+                                        MIRACASTLOG_VERBOSE("command is [%s]\n", command);
+                                        popen_file_ptr = popen(command, "r");
+                                        if (!popen_file_ptr)
+                                        {
+                                            MIRACASTLOG_ERROR("Could not open pipe for output.");
+                                        }
+                                        else
+                                        {
+                                            memset( data , 0x00 , sizeof(data));
+                                            while (getline(&current_line_buffer, &len, popen_file_ptr) != -1)
+                                            {
+                                                sprintf(data + strlen(data), current_line_buffer);
+                                                MIRACASTLOG_VERBOSE("data : [%s]", data);
+                                            }
+                                            pclose(popen_file_ptr);
+                                            popen_file_ptr = nullptr;
+
+                                            popen_buffer = data;
+                                            REMOVE_R(popen_buffer);
+                                            REMOVE_N(popen_buffer);
+
+                                            MIRACASTLOG_VERBOSE("popen_buffer is [%s]\n", popen_buffer.c_str());
+
+                                            free(current_line_buffer);
+                                            current_line_buffer = nullptr;
+
+                                            if (!popen_buffer.empty()){
+                                                MIRACASTLOG_VERBOSE("%s is success and popen_buffer[%s]\n", command,popen_buffer.c_str());
+                                                remote_address = popen_buffer;
+                                                //sprintf( command, "ping -c 1 -W 3 %s", remote_address.c_str());
+                                                //system(command);
+                                                sleep(1);
+                                                break;
+                                            }
+                                        }
+                                        sleep(1);
+                                    }
+                                }
+                                MIRACASTLOG_VERBOSE("initiate_TCP started GO IP[%s]\n", remote_address.c_str());
+                                ret = initiate_TCP( remote_address );
+                                MIRACASTLOG_VERBOSE("initiate_TCP done ret[%x]\n", ret);
+                                if (MIRACAST_OK == ret)
+                                {
+                                    m_groupInfo->localIPAddr = "192.168.59.1";
+                                    MIRACASTLOG_TRACE("RTSP Thread Initialated with RTSP_START_RECEIVE_MSGS\n");
+                                    send_msg_rtsp_msg_hdler_thread(RTSP_START_RECEIVE_MSGS);
+                                    /*RTSP Thread will notify whether session restart required or not*/
+                                    session_restart_required = false;
+                                    ret = MIRACAST_FAIL;
+                                }
+                                else
+                                {
+                                    MIRACASTLOG_ERROR("TCP connection Failed");
+                                }
                                 // STB is the GO in the p2p group
                                 m_groupInfo->isGO = true;
                             }

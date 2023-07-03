@@ -662,12 +662,16 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(7236);
 
-    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
-
-    if (r != 1)
-    {
-        MIRACASTLOG_ERROR("inet_issue");
-        return MIRACAST_FAIL;
+    if (!goIP.empty()){
+        r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
+        if (r != 1)
+        {
+            MIRACASTLOG_ERROR("inet_issue");
+            return MIRACAST_FAIL;
+        }
+    }
+    else{
+        addr.sin_addr.s_addr = INADDR_ANY;
     }
 
     memcpy(&str_addr, &addr, sizeof(addr));
@@ -710,7 +714,7 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
             if (!wait_data_timeout(m_tcpSockfd, SOCKET_DFLT_WAIT_TIMEOUT))
             {
                 // connection timed out or failed
-                MIRACASTLOG_INFO("Socket Connection Timedout ...\n");
+                MIRACASTLOG_ERROR("Socket Connection Timedout ...\n");
             }
             else
             {
@@ -743,9 +747,15 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
         if (events[i].events & EPOLLOUT)
         {
             MIRACASTLOG_INFO("Socket %d got some data via EPOLLOUT", events[i].data.fd);
-            return ret;
+            break;
         }
     }
+
+    if ( MIRACAST_FAIL == ret ){
+        close(m_tcpSockfd);
+        m_tcpSockfd = -1;
+    }
+
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
@@ -1351,6 +1361,10 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
         {
             MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_RESTART_DISCOVERING);
             send_msgto_controller_thread(CONTROLLER_RTSP_RESTART_DISCOVERING);
+            if ( -1 != m_tcpSockfd ){
+                close(m_tcpSockfd);
+                m_tcpSockfd = -1;
+            }
         }
     }
     MIRACASTLOG_TRACE("Exiting...");

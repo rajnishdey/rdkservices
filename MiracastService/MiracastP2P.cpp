@@ -525,11 +525,11 @@ MiracastError MiracastP2P::connect_device(std::string MAC)
     command.append(MAC);
     command.append(SPACE_CHAR);
     command.append(m_authType);
-
+#if 0
     // configuring go_intent as 0 to make our device as p2p_client insteadof getting p2p_group_owner
     command.append(SPACE_CHAR);
     command.append("go_intent=0");
-
+#endif
     ret = (MiracastError)executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
@@ -560,4 +560,23 @@ MiracastError MiracastP2P::set_FriendlyName(std::string friendly_name , bool app
 std::string MiracastP2P::get_FriendlyName(void)
 {
     return m_friendly_name;
+}
+
+MiracastError MiracastP2P::remove_GroupInterface(std::string group_iface_name )
+{
+    MiracastError ret = MIRACAST_OK;
+    MIRACASTLOG_TRACE("Entering..");
+
+    if (group_iface_name.empty()){
+        MIRACASTLOG_ERROR("Empty group iface name has passed..");
+        ret = MIRACAST_FAIL;
+    }
+    else{
+        std::string command, retBuffer;
+        command = "P2P_GROUP_REMOVE " + group_iface_name;
+        ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+    }
+
+    MIRACASTLOG_TRACE("Exiting..");
+    return ret;
 }

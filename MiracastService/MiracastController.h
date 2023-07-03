@@ -119,10 +119,12 @@ private:
     MiracastThread *m_thunder_req_handler_thread;
     MiracastThread *m_controller_thread;
     //MiracastThread *m_hdcp_handler_thread;
+    int m_tcpserverSockfd;
 #ifdef ENABLE_TEST_NOTIFIER
     MiracastThread  *m_test_notifier_thread;
 #endif
     eCONTROLLER_FW_STATES convertP2PtoSessionActions(P2P_EVENTS eventId);
+    MiracastError start_DHCPServer(std::string interface);
 };
 
 #endif

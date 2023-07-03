@@ -99,6 +99,7 @@ public:
 
     MiracastError set_FriendlyName(std::string friendly_name , bool apply=false );
     std::string get_FriendlyName(void);
+    MiracastError remove_GroupInterface(std::string group_iface_name);
 };
 
 #endif
