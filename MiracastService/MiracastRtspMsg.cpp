@@ -242,7 +242,10 @@ bool MiracastRTSPMsg::set_WFDVideoFormat(RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt)
         (RTSP_VESA_RESOLUTION_UNSUPPORTED_MASK & st_video_fmt.st_h264_codecs.vesa_mask)||
         (RTSP_HH_RESOLUTION_UNSUPPORTED_MASK & st_video_fmt.st_h264_codecs.hh_mask))
     {
-        MIRACASTLOG_ERROR("Invalid video format[%#08X]...\n",st_video_fmt.st_h264_codecs.hh_mask);
+        MIRACASTLOG_ERROR("Invalid video format[%#08X][%#08X][%#08X]...\n",
+                            st_video_fmt.st_h264_codecs.cea_mask,
+                            st_video_fmt.st_h264_codecs.vesa_mask,
+                            st_video_fmt.st_h264_codecs.hh_mask);
         MIRACASTLOG_TRACE("Exiting...");
         return false;
     }
@@ -293,7 +296,7 @@ bool MiracastRTSPMsg::set_WFDVideoFormat(RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt)
         m_wfd_video_formats.append(video_format_buffer);
     }
 
-    MIRACASTLOG_TRACE("video format[%s]...\n",m_wfd_video_formats.c_str());
+    MIRACASTLOG_VERBOSE("video format[%s]...\n",m_wfd_video_formats.c_str());
     MIRACASTLOG_TRACE("Exiting...");
     return true;
 }
@@ -341,6 +344,8 @@ bool MiracastRTSPMsg::set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt
         break;
         default:
         {
+            MIRACASTLOG_ERROR("unknown audio format[%#08X]...\n",st_audio_fmt.audio_format);
+            MIRACASTLOG_TRACE("Exiting...");
             return false;
         }
         break;
@@ -354,8 +359,9 @@ bool MiracastRTSPMsg::set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt
                 st_audio_fmt.latency);
     m_wfd_audio_codecs = audio_format_buffer;
 
-    MIRACASTLOG_TRACE("audio format[%s]...\n",m_wfd_audio_codecs.c_str());
-    MIRACASTLOG_TRACE("Exiting...");    return true;
+    MIRACASTLOG_VERBOSE("audio format[%s]...\n",m_wfd_audio_codecs.c_str());
+    MIRACASTLOG_TRACE("Exiting...");
+    return true;
 }
 
 bool MiracastRTSPMsg::set_WFDClientRTPPorts(std::string client_rtp_ports)
@@ -655,9 +661,6 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
     struct epoll_event events[MAX_EPOLL_EVENTS];
     struct sockaddr_in addr = {0};
     struct sockaddr_storage str_addr = {0};
-
-    system("iptables -I INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
-    system("iptables -I OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(7236);
@@ -1211,8 +1214,9 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
     eCONTROLLER_FW_STATES controller_state = CONTROLLER_INVALID_STATE;
     RTSP_STATUS status_code = RTSP_TIMEDOUT;
     std::string socket_buffer;
-    bool start_monitor_keep_alive_msg = false;
-    bool rtsp_msg_hldr_running_state = true;
+    bool    start_monitor_keep_alive_msg = false,
+            rtsp_msg_hldr_running_state = true,
+            restart_discovery_needed = true;
 
     MIRACASTLOG_TRACE("Entering...");
 
@@ -1256,6 +1260,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
         }
 
         start_monitor_keep_alive_msg = false;
+        restart_discovery_needed = true;
 
         if ((RTSP_MSG_SUCCESS == status_code) && (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
         {
@@ -1306,6 +1311,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                 {
                     MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
                     send_msgto_controller_thread(CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
+                    restart_discovery_needed = false;
                     break;
                 }
             }
@@ -1357,14 +1363,15 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
         }
 
         MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
-        if ( true == rtsp_msg_hldr_running_state )
+        if ( true == restart_discovery_needed )
         {
             MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_RESTART_DISCOVERING);
             send_msgto_controller_thread(CONTROLLER_RTSP_RESTART_DISCOVERING);
-            if ( -1 != m_tcpSockfd ){
-                close(m_tcpSockfd);
-                m_tcpSockfd = -1;
-            }
+        }
+        if ( -1 != m_tcpSockfd )
+        {
+            close(m_tcpSockfd);
+            m_tcpSockfd = -1;
         }
     }
     MIRACASTLOG_TRACE("Exiting...");

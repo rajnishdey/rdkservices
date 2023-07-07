@@ -187,10 +187,6 @@ void MiracastController::destroyInstance()
 MiracastController::MiracastController(void)
 {
     MIRACASTLOG_TRACE("Entering...");
-    // To delete the rules so that it would be duplicated in this program execution
-    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
-    system("iptables -D INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
-    system("iptables -D OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 
     m_groupInfo = nullptr;
     m_p2p_ctrl_obj = nullptr;
@@ -218,10 +214,6 @@ MiracastController::~MiracastController()
         m_groupInfo = nullptr;
     }
 
-    /*@TODO: Check on ACCEPT or REJECT. (p2)*/
-    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
-    system("iptables -D INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
-    system("iptables -D OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
     MIRACASTLOG_TRACE("Exiting...");
 }
 
@@ -465,6 +457,7 @@ MiracastError MiracastController::start_DHCPServer(std::string interface)
     MIRACASTLOG_VERBOSE("command : [%s]", command.c_str());
     system(command.c_str());
 
+#if 0
     command = "wpa_cli -i ";
     command.append(interface.c_str());
     command.append(" wps_pbc");
@@ -513,6 +506,7 @@ MiracastError MiracastController::start_DHCPServer(std::string interface)
     }
 
     MIRACASTLOG_VERBOSE("Listening for incoming connections...\n");
+#endif
 
     MIRACASTLOG_TRACE("Exiting...");
 
@@ -728,7 +722,7 @@ MiracastError MiracastController::start_streaming()
     }
     else
     {
-        system("iptables -I INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
+        //
     }
     MIRACASTLOG_INFO("Casting started. Player initiated");
     std::string gstreamerPipeline;
@@ -784,8 +778,6 @@ MiracastError MiracastController::start_streaming()
 MiracastError MiracastController::stop_streaming(eCONTROLLER_FW_STATES state )
 {
     MIRACASTLOG_TRACE("Entering...");
-
-    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
 
     if ((CONTROLLER_SELF_ABORT == state)||
         (CONTROLLER_TEARDOWN_REQ_FROM_THUNDER == state)||
