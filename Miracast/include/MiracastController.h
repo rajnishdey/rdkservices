@@ -36,7 +36,7 @@
 #include "MiracastP2P.h"
 #include "MiracastLogger.h"
 #include "MiracastRtspMsg.h"
-#include "wifiSrvMgrIarmIf.h"
+//#include "wifiSrvMgrIarmIf.h"
 
 using namespace std;
 using namespace MIRACAST;
@@ -78,6 +78,7 @@ public:
 
     MiracastError stop_discover_devices();
     MiracastError set_WFDParameters(void);
+    void restart_session_discovery(void );
     void restart_session(bool start_discovering_enabled);
     void stop_session(bool stop_streaming_needed = false);
     std::string get_device_name(std::string mac);
@@ -90,6 +91,13 @@ public:
     bool set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt );
     eMIRA_PLAYER_STATES m_ePlayer_state;
 
+    void set_WFDSourceMACAddress(std::string MAC_Addr);
+    void set_WFDSourceName(std::string device_name);
+    std::string get_WFDSourceName(void);
+    std::string get_WFDSourceMACAddress(void);
+    void reset_WFDSourceMACAddress(void);
+    void reset_WFDSourceName(void);
+
 private:
     static MiracastController *m_miracast_ctrl_obj;
     MiracastController();
@@ -97,7 +105,7 @@ private:
     MiracastController &operator=(const MiracastController &) = delete;
     MiracastController(const MiracastController &) = delete;
 
-    std::string parse_p2p_event_data(const char *tmpBuff, const char *lookup_data);
+    std::string parse_p2p_event_data(const char *tmpBuff, const char *lookup_data );
     std::string start_DHCPClient(std::string interface, std::string &default_gw_ip_addr);
     MiracastError initiate_TCP(std::string go_ip);
     MiracastError connect_Sink();
@@ -107,6 +115,8 @@ private:
     void set_localIp(std::string ipAddr);
 
     MiracastServiceNotifier *m_notify_handler;
+    std::string m_connected_mac_addr;
+    std::string m_connected_device_name;
     std::string m_localIp;
     vector<DeviceInfo *> m_deviceInfoList;
     GroupInfo *m_groupInfo;

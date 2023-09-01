@@ -18,6 +18,7 @@
  */
 
 #include <MiracastRtspMsg.h>
+#include <MiracastGstPlayer.h>
 
 MiracastRTSPMsg *MiracastRTSPMsg::m_rtsp_msg_obj{nullptr};
 static std::string empty_string = "";
@@ -146,6 +147,7 @@ MiracastRTSPMsg::MiracastRTSPMsg()
 
     MIRACASTLOG_TRACE("Entering...");
     m_tcpSockfd = -1;
+    m_streaming_started = false;
 
     m_wfd_src_req_timeout = RTSP_REQUEST_RECV_TIMEOUT;
     m_wfd_src_res_timeout = RTSP_RESPONSE_RECV_TIMEOUT;
@@ -682,14 +684,40 @@ void MiracastRTSPMsg::reset_WFDSourceName(void)
     m_connected_device_name.clear();
 }
 
-void MiracastRTSPMsg::set_state(RTSP_STATES state)
+void MiracastRTSPMsg::set_state( eMIRA_PLAYER_STATES state , bool send_notification , eM_PLAYER_REASON_CODE reason_code )
 {
+    MIRACASTLOG_TRACE("Entering [%d]notify[%u]reason[%u]...",
+                        state,send_notification,reason_code);
     m_current_state = state;
+
+    if (( MIRACAST_PLAYER_STATE_STOPPED == state )||( MIRACAST_PLAYER_STATE_SELF_ABORT == state )){
+        stop_streaming(state);
+    }
+
+    if (( true == send_notification ) && ( nullptr != m_player_notify_handler ))
+    {
+        m_player_notify_handler->onStateChange( m_connected_mac_addr, 
+                                                m_connected_device_name, 
+                                                state, 
+                                                reason_code );
+    }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
-RTSP_STATES MiracastRTSPMsg::get_state(void)
+eMIRA_PLAYER_STATES MiracastRTSPMsg::get_state(void)
 {
     return m_current_state;
+}
+
+void MiracastRTSPMsg::store_srcsink_info( std::string client_name,
+                                          std::string client_mac,
+                                          std::string src_dev_ip,
+                                          std::string sink_ip)
+{
+    m_connected_device_name = client_name;
+    m_connected_mac_addr = client_mac;
+    m_src_dev_ip = src_dev_ip;
+    m_sink_ip = sink_ip;
 }
 
 /*
@@ -718,8 +746,11 @@ RTSP_STATUS MiracastRTSPMsg::receive_buffer_timedOut(int socket_fd, void *buffer
     int recv_return = -1;
     RTSP_STATUS status = RTSP_MSG_SUCCESS;
 
+    MIRACASTLOG_TRACE("Entering WaitTime[%d]...",wait_time_ms);
+
     if (!wait_data_timeout(socket_fd, wait_time_ms))
     {
+        MIRACASTLOG_TRACE("Exiting [TimedOut]...");
         return RTSP_TIMEDOUT;
     }
     else
@@ -736,11 +767,12 @@ RTSP_STATUS MiracastRTSPMsg::receive_buffer_timedOut(int socket_fd, void *buffer
         }
         else
         {
-            MIRACASTLOG_ERROR("error: recv failed, or connection closed\n");
+            MIRACASTLOG_ERROR("recv failed error [%s]\n", strerror(errno));
             status = RTSP_MSG_FAILURE;
         }
     }
     MIRACASTLOG_INFO("received string(%d) - %s\n", recv_return, buffer);
+    MIRACASTLOG_TRACE("Exiting [%d]...",status);
     return status;
 }
 
@@ -754,8 +786,6 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
     struct sockaddr_in addr = {0};
     struct sockaddr_storage str_addr = {0};
 
-    set_state(RTSP_STATE_INITIATED);
-
     addr.sin_family = AF_INET;
     addr.sin_port = htons(7236);
 
@@ -764,7 +794,6 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
         if (r != 1)
         {
             MIRACASTLOG_ERROR("inet_issue");
-            set_state(RTSP_STATE_FAILED);
             return MIRACAST_FAIL;
         }
     }
@@ -786,7 +815,6 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
     if (m_tcpSockfd < 0)
     {
         MIRACASTLOG_ERROR("TCP Socket creation error %s", strerror(errno));
-        set_state(RTSP_STATE_FAILED);
         return MIRACAST_FAIL;
     }
 
@@ -853,7 +881,6 @@ MiracastError MiracastRTSPMsg::initiate_TCP(std::string goIP)
     if ( MIRACAST_FAIL == ret ){
         close(m_tcpSockfd);
         m_tcpSockfd = -1;
-        set_state(RTSP_STATE_FAILED);
     }
 
     MIRACASTLOG_TRACE("Exiting...");
@@ -1214,19 +1241,17 @@ RTSP_STATUS MiracastRTSPMsg::validate_rtsp_post_m1_m7_xchange(std::string rtsp_p
         if (!strcmp( trigger_method_str.c_str() , RTSP_REQ_TEARDOWN_MODE)){
             MIRACASTLOG_INFO("TEARDOWN request from Source received\n");
             sub_status_code = RTSP_MSG_TEARDOWN_REQUEST;
-            set_state(RTSP_STATE_TEARDOWN);
         }
         else if (!strcmp( trigger_method_str.c_str() , RTSP_REQ_PLAY_MODE)){
             MIRACASTLOG_INFO("PLAY request from Source received\n");
-            if (( RTSP_STATE_RESUME == get_state()) ||
-                ( RTSP_STATE_M1_M7_EXCHANGE_DONE == get_state()))
+            if ( MIRACAST_PLAYER_STATE_PLAYING == get_state())
             {
                 error_code = RTSP_ERRORCODE_METHOD_NOT_VALID;
             }
         }
         else if (!strcmp( trigger_method_str.c_str() , RTSP_REQ_PAUSE_MODE)){
             MIRACASTLOG_INFO("PAUSE request from Source received\n");
-            if ( RTSP_STATE_PAUSE == get_state()){
+            if ( MIRACAST_PLAYER_STATE_PAUSED == get_state()){
                 error_code = RTSP_ERRORCODE_METHOD_NOT_VALID;
             }
         }
@@ -1310,13 +1335,126 @@ RTSP_STATUS MiracastRTSPMsg::rtsp_sink2src_request_msg_handling(eCONTROLLER_FW_S
     return status_code;
 }
 
+std::string MiracastRTSPMsg::get_localIp()
+{
+    MIRACASTLOG_TRACE("Entering...");
+    
+    MIRACASTLOG_TRACE("Exiting...");
+    return m_sink_ip;
+}
+
+MiracastError MiracastRTSPMsg::start_streaming( VIDEO_RECT_STRUCT video_rect )
+{
+    MIRACASTLOG_TRACE("Entering...");
+    const char *mcastIptableFile = "/opt/mcast_iptable.txt";
+    std::ifstream mIpfile(mcastIptableFile);
+    std::string mcast_iptable;
+    if (mIpfile.is_open())
+    {
+        std::getline(mIpfile, mcast_iptable);
+        MIRACASTLOG_INFO("Iptable reading from file [%s] as [ %s] ", mcastIptableFile, mcast_iptable.c_str());
+        system(mcast_iptable.c_str());
+        mIpfile.close();
+    }
+    else
+    {
+        //
+    }
+    MIRACASTLOG_INFO("Casting started. Player initiated");
+    std::string gstreamerPipeline;
+
+    const char *mcastfile = "/opt/mcastgstpipline.txt";
+    std::ifstream mcgstfile(mcastfile);
+
+    if (mcgstfile.is_open())
+    {
+        std::getline(mcgstfile, gstreamerPipeline);
+        MIRACASTLOG_INFO("gstpipeline reading from file [%s], gstreamerPipeline as [ %s] ", mcastfile, gstreamerPipeline.c_str());
+        mcgstfile.close();
+        if (0 == system(gstreamerPipeline.c_str()))
+            MIRACASTLOG_INFO("Pipeline created successfully ");
+        else
+        {
+            MIRACASTLOG_INFO("Pipeline creation failure");
+            return MIRACAST_FAIL;
+        }
+    }
+    else
+    {
+        if (access("/opt/miracast_gst", F_OK) == 0)
+        {
+            gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv playbin uri=udp://0.0.0.0:1990 video-sink=\"westerossink\"";
+            MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
+            if (0 == system(gstreamerPipeline.c_str()))
+                MIRACASTLOG_INFO("Pipeline created successfully ");
+            else
+            {
+                MIRACASTLOG_INFO("Pipeline creation failure");
+                return MIRACAST_FAIL;
+            }
+        }
+        else
+        {
+            MiracastGstPlayer *miracastGstPlayerObj = MiracastGstPlayer::getInstance();
+            std::string port = get_WFDStreamingPortNumber();
+            std::string local_ip = get_localIp();
+            miracastGstPlayerObj->setVideoRectangle( video_rect );
+            miracastGstPlayerObj->launch(local_ip, port);
+        }
+    }
+    m_streaming_started = true;
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
+MiracastError MiracastRTSPMsg::stop_streaming( eMIRA_PLAYER_STATES state )
+{
+    MIRACASTLOG_TRACE("Entering...");
+
+    if ((MIRACAST_PLAYER_STATE_STOPPED == state)||
+        (MIRACAST_PLAYER_STATE_SELF_ABORT == state))
+    {
+        if (m_streaming_started)
+        {
+            if (MIRACAST_PLAYER_STATE_SELF_ABORT == state)
+            {
+                MiracastGstPlayer::destroyInstance();
+            }
+            else
+            {
+                MiracastGstPlayer *miracastGstPlayerObj = MiracastGstPlayer::getInstance();
+                miracastGstPlayerObj->stop();
+            }
+            m_streaming_started = false;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
+MiracastError MiracastRTSPMsg::updateVideoRectangle( VIDEO_RECT_STRUCT videorect )
+{
+    MIRACASTLOG_TRACE("Entering...");
+
+    MiracastGstPlayer *miracastGstPlayerObj = MiracastGstPlayer::getInstance();
+    miracastGstPlayerObj->setVideoRectangle( videorect , true );
+
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
 void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 {
     char rtsp_message_socket[4096] = {0};
     RTSP_HLDR_MSGQ_STRUCT rtsp_message_data = {};
-    eCONTROLLER_FW_STATES controller_state = CONTROLLER_INVALID_STATE;
+    eCONTROLLER_FW_STATES controller_state,
+                          rtsp_m_msg_state;
+    VIDEO_RECT_STRUCT     video_rect_st = {0};
     RTSP_STATUS status_code = RTSP_TIMEDOUT;
     std::string rtsp_msg_buffer;
+    std::string client_mac = "",
+                client_name = "",
+                go_ip_addr = "";
     bool    start_monitor_keep_alive_msg = false,
             rtsp_msg_hldr_running_state = true,
             restart_discovery_needed = true;
@@ -1325,6 +1463,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
     while ((nullptr != m_rtsp_msg_handler_thread)&&(true == rtsp_msg_hldr_running_state))
     {
+        set_state(MIRACAST_PLAYER_STATE_IDLE);
         MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
         m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), THREAD_RECV_MSG_INDEFINITE_WAIT);
 
@@ -1334,15 +1473,51 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
         {
             MIRACASTLOG_TRACE("RTSP_SELF_ABORT ACTION Received\n");
             rtsp_msg_hldr_running_state = false;
+            set_state(MIRACAST_PLAYER_STATE_STOPPED);
             continue;
         }
 
-        if (RTSP_START_RECEIVE_MSGS != rtsp_message_data.state)
+        if ( RTSP_START_RECEIVE_MSGS == rtsp_message_data.state )
         {
+            MIRACASTLOG_INFO("RTSP_START_RECEIVE_MSGS ACTION Received\n");
+            store_srcsink_info( rtsp_message_data.source_dev_name , 
+                                rtsp_message_data.source_dev_mac ,
+                                rtsp_message_data.source_dev_ip,
+                                rtsp_message_data.sink_dev_ip );
+
+            MIRACASTLOG_INFO("dev_name[%s]dev_mac[%s]dev_ip[%s]sink_ip[%s]",
+                                rtsp_message_data.source_dev_name,
+                                rtsp_message_data.source_dev_mac,
+                                rtsp_message_data.source_dev_ip,
+                                rtsp_message_data.sink_dev_ip);
+            MIRACASTLOG_INFO("VideoRect[%d,%d,%d,%d]",
+                                rtsp_message_data.videorect.startX,
+                                rtsp_message_data.videorect.startY,
+                                rtsp_message_data.videorect.width,
+                                rtsp_message_data.videorect.height);
+            
+            video_rect_st.startX = rtsp_message_data.videorect.startX;
+            video_rect_st.startY = rtsp_message_data.videorect.startY;
+            video_rect_st.width = rtsp_message_data.videorect.width;
+            video_rect_st.height = rtsp_message_data.videorect.height;
+
+            set_state( MIRACAST_PLAYER_STATE_INITIATED , true );
+
+            if (MIRACAST_OK != initiate_TCP(rtsp_message_data.source_dev_ip))
+            {
+                set_state( MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR );
+                continue;
+            }
+        }
+        else
+        {
+            // NEED to define ERROR code
+            set_state( MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_INT_FAILURE );
+            MIRACASTLOG_ERROR("[%#04X] action received and not yet handled\n", rtsp_message_data.state);
             continue;
         }
-        m_current_state = RTSP_STATE_INPROGRESS;
-        rtsp_message_data.state = RTSP_M1_REQUEST_RECEIVED;
+        set_state( MIRACAST_PLAYER_STATE_INPROGRESS , true );
+        rtsp_m_msg_state = RTSP_M1_REQUEST_RECEIVED;
 
         unsigned int current_wait_time_ms = RTSP_REQUEST_RECV_TIMEOUT;
 
@@ -1353,7 +1528,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             rtsp_msg_buffer.clear();
             rtsp_msg_buffer = rtsp_message_socket;
 
-            switch (rtsp_message_data.state)
+            switch (rtsp_m_msg_state)
             {
                 case RTSP_M1_REQUEST_RECEIVED:
                 {
@@ -1403,50 +1578,69 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                 break;
             }
 
-            MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_message_data.state, status_code);
+            MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_m_msg_state, status_code);
 
-            if ((RTSP_MSG_SUCCESS != status_code) || (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
+            if ((RTSP_MSG_SUCCESS != status_code) || (RTSP_M7_REQUEST_ACK == rtsp_m_msg_state))
             {
                 break;
             }
             memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
-            rtsp_message_data.state = static_cast<eCONTROLLER_FW_STATES>(rtsp_message_data.state + 1);
+            rtsp_m_msg_state = static_cast<eCONTROLLER_FW_STATES>(rtsp_m_msg_state + 1);
+
+            if (true == m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), THREAD_RECV_MSG_WAIT_IMMEDIATE)){
+                if (( RTSP_SELF_ABORT == rtsp_message_data.state ) ||
+                    ( RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state ))
+                {
+                    status_code = RTSP_MSG_TEARDOWN_REQUEST;
+                    if ( RTSP_SELF_ABORT == rtsp_message_data.state ){
+                        rtsp_msg_hldr_running_state = false;
+                    }
+                    break;
+                }
+                else{
+                    MIRACASTLOG_WARNING("[%s] Yet to Handle RTSP Msg Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+                }
+            }
         }
 
         start_monitor_keep_alive_msg = false;
         restart_discovery_needed = true;
 
-        if ((RTSP_MSG_SUCCESS == status_code) && (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
+        if ((RTSP_MSG_SUCCESS == status_code) && (RTSP_M7_REQUEST_ACK == rtsp_m_msg_state))
         {
             controller_state = CONTROLLER_RTSP_MSG_RECEIVED_PROPERLY;
             start_monitor_keep_alive_msg = true;
-        }
-        else if (RTSP_INVALID_MSG_RECEIVED == status_code)
-        {
-            controller_state = CONTROLLER_RTSP_INVALID_MESSAGE;
-        }
-        else if (RTSP_MSG_FAILURE == status_code)
-        {
-            controller_state = CONTROLLER_RTSP_SEND_REQ_RESP_FAILED;
+            start_streaming(video_rect_st);
+            set_state(MIRACAST_PLAYER_STATE_PLAYING , true );
         }
         else
         {
-            controller_state = CONTROLLER_RTSP_MSG_TIMEDOUT;
-        }
-        MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", controller_state);
-        send_msgto_controller_thread(controller_state);
-
-        if (CONTROLLER_RTSP_MSG_RECEIVED_PROPERLY != controller_state)
-        {
-            set_state(RTSP_STATE_FAILED);
-            continue;
+            eM_PLAYER_REASON_CODE reason = MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR;
+            // RTSP Failure Noted Here
+            if (RTSP_INVALID_MSG_RECEIVED == status_code)
+            {
+                controller_state = CONTROLLER_RTSP_INVALID_MESSAGE;
+            }
+            else if (RTSP_MSG_FAILURE == status_code)
+            {
+                controller_state = CONTROLLER_RTSP_SEND_REQ_RESP_FAILED;
+            }
+            else if ( RTSP_MSG_TEARDOWN_REQUEST == status_code ){
+                reason = MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP;
+            }
+            else
+            {
+                controller_state = CONTROLLER_RTSP_MSG_TIMEDOUT;
+                reason = MIRACAST_PLAYER_REASON_CODE_RTSP_TIMEOUT;
+            }
+            set_state(MIRACAST_PLAYER_STATE_STOPPED , true , reason );
         }
 
         RTSP_STATUS socket_state;
         struct timespec start_time, current_time;
         int elapsed_seconds = 0;
 
-        set_state(RTSP_STATE_M1_M7_EXCHANGE_DONE);
+        //set_state(RTSP_STATE_M1_M7_EXCHANGE_DONE);
         clock_gettime(CLOCK_REALTIME, &start_time);
 
         controller_state = CONTROLLER_RTSP_RESTART_DISCOVERING;
@@ -1458,6 +1652,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             elapsed_seconds = current_time.tv_sec - start_time.tv_sec;
             if (elapsed_seconds > m_wfd_src_session_timeout) {
                 controller_state = CONTROLLER_RTSP_MSG_TIMEDOUT;
+                set_state(MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_RTSP_TIMEOUT );
                 break;
             }
 
@@ -1480,19 +1675,24 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                     // Refresh the Keep Alive Time
                     clock_gettime(CLOCK_REALTIME, &start_time);
                 }
-                else if ((RTSP_MSG_TEARDOWN_REQUEST == status_code) ||
-                    ((RTSP_MSG_SUCCESS != status_code) &&
-                     (RTSP_MSG_TEARDOWN_REQUEST != status_code)))
+                else if (RTSP_MSG_TEARDOWN_REQUEST == status_code)
                 {
-                    MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
-                    send_msgto_controller_thread(CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED);
                     restart_discovery_needed = false;
+                    set_state(MIRACAST_PLAYER_STATE_STOPPED , true);
+                    break;
+                }
+                else if ((RTSP_MSG_SUCCESS != status_code) &&
+                        (RTSP_MSG_TEARDOWN_REQUEST != status_code))
+                {
+                    restart_discovery_needed = false;
+                    set_state(MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR );
                     break;
                 }
             }
             else if (RTSP_MSG_FAILURE == socket_state)
             {
                 controller_state = CONTROLLER_RTSP_SEND_REQ_RESP_FAILED;
+                set_state(MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR );
                 break;
             }
 
@@ -1514,25 +1714,41 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                     case RTSP_TEARDOWN_FROM_SINK2SRC:
                     {
                         if (RTSP_SELF_ABORT == rtsp_message_data.state){
-                            rtsp_message_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
                             MIRACASTLOG_TRACE("[RTSP_SELF_ABORT] Received\n");
                             rtsp_msg_hldr_running_state = false;
+                            set_state(MIRACAST_PLAYER_STATE_SELF_ABORT , true );
                         }
                         else{
                             if ( RTSP_PLAY_FROM_SINK2SRC == rtsp_message_data.state ){
-                                set_state(RTSP_STATE_RESUME);
+                                set_state(MIRACAST_PLAYER_STATE_PLAYING );
                             }
                             else if ( RTSP_PAUSE_FROM_SINK2SRC == rtsp_message_data.state ){
-                                set_state(RTSP_STATE_PAUSE);
+                                set_state(MIRACAST_PLAYER_STATE_PAUSED );
                             }
                             MIRACASTLOG_TRACE("[RTSP_PLAY/RTSP_PAUSE/RTSP_TEARDOWN] ACTION Received\n");
                         }
-                        if ((RTSP_MSG_FAILURE == rtsp_sink2src_request_msg_handling(rtsp_message_data.state) ||
-                            (RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state)))
+                        if ((RTSP_MSG_FAILURE == rtsp_sink2src_request_msg_handling(rtsp_message_data.state)) ||
+                            (RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state))
                         {
                             start_monitor_keep_alive_msg = false;
-                            set_state(RTSP_STATE_TEARDOWN);
+                            if (RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state){
+                                set_state(MIRACAST_PLAYER_STATE_STOPPED , true , MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP );
+                            }
+                            else{
+                                set_state(MIRACAST_PLAYER_STATE_STOPPED , true );
+                            }
                         }
+                    }
+                    break;
+                    case RTSP_UPDATE_VIDEO_RECT:
+                    {
+                        // Video Rectangle updation after successful streaming to be taken here
+                        VIDEO_RECT_STRUCT videorect = {0};
+                        videorect.startX = rtsp_message_data.videorect.startX;
+                        videorect.startY = rtsp_message_data.videorect.startY;
+                        videorect.width = rtsp_message_data.videorect.width;
+                        videorect.height = rtsp_message_data.videorect.height;
+                        updateVideoRectangle(videorect);
                     }
                     break;
                     default:
@@ -1544,12 +1760,6 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             }
         }
 
-        MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
-        if ( true == restart_discovery_needed )
-        {
-            MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", controller_state);
-            send_msgto_controller_thread(controller_state);
-        }
         if ( -1 != m_tcpSockfd )
         {
             close(m_tcpSockfd);
@@ -1561,20 +1771,20 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
 void MiracastRTSPMsg::send_msgto_controller_thread(eCONTROLLER_FW_STATES state)
 {
-    CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
     MIRACASTLOG_TRACE("Entering...");
-    controller_msgq_data.state = state;
-    controller_msgq_data.msg_type = RTSP_MSG;
-    m_controller_thread->send_message(&controller_msgq_data, CONTROLLER_MSGQ_SIZE);
+    if ( nullptr != m_controller_thread ){
+        CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
+        controller_msgq_data.state = state;
+        controller_msgq_data.msg_type = RTSP_MSG;
+        m_controller_thread->send_message(&controller_msgq_data, CONTROLLER_MSGQ_SIZE);
+    }
     MIRACASTLOG_TRACE("Exiting...");
 }
 
-void MiracastRTSPMsg::send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state)
+void MiracastRTSPMsg::send_msgto_rtsp_msg_hdler_thread(RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data)
 {
-    RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {RTSP_INVALID_ACTION,0};
     MIRACASTLOG_TRACE("Entering...");
     if (nullptr != m_rtsp_msg_handler_thread){
-        rtsp_hldr_msgq_data.state = state;
         m_rtsp_msg_handler_thread->send_message(&rtsp_hldr_msgq_data, RTSP_HANDLER_MSGQ_SIZE);
     }
     MIRACASTLOG_TRACE("Exiting...");
