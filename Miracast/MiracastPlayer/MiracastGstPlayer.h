@@ -29,14 +29,12 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define DEFAULT_MAX_PUSH_BUFFER_SIZE    ( 1 * 1024 * 1024 )
-
 class MiracastGstPlayer
 {
 public:
     static MiracastGstPlayer *getInstance();
     static void destroyInstance();
-    bool launch(std::string localip , std::string streaming_port);
+    bool launch(std::string localip , std::string streaming_port,MiracastRTSPMsg *rtsp_instance);
     bool stop();
     bool pause();
     bool resume();
@@ -49,28 +47,26 @@ public:
     double getCurrentPosition(GstElement *pipeline = nullptr);
     bool get_player_statistics();
     void print_pipeline_state(GstElement *pipeline = nullptr);
-    GQueue m_elts;
-    static void element_setup(GstElement * playbin, GstElement * element, GQueue * elts);
-    static std::string parse_opt_flag( std::string file_name , bool integer_check = false );
+    //static std::string parse_opt_flag( std::string file_name , bool integer_check = false );
 
 private:
     GstElement  *m_pipeline{nullptr};
-
-    GstElement  *m_udpsrc2appsink_pipeline{nullptr};
-    GstElement  *m_playbin2appsrc_pipeline{nullptr};
     GstElement  *m_udpsrc{nullptr};
     GstElement  *m_rtpmp2tdepay{nullptr};
     GstElement  *m_rtpjitterbuffer{nullptr};
-    GstElement  *m_appsinkqueue{nullptr};
-    GstElement  *m_appsink{nullptr};
-    GstElement  *m_appsrc{nullptr};
-    gboolean    bPushData;
-    guint64     m_max_pushbuffer_size{DEFAULT_MAX_PUSH_BUFFER_SIZE};
-    guint64     m_current_pushbuffer_size{0};
-    guint8      *m_push_buffer_ptr{nullptr};
-    guint8      *m_current_buffer_ptr{nullptr};
+    GstElement *m_tsparse{nullptr};
+    GstElement *m_tsdemux{nullptr};
+    GstElement *m_vQueue{nullptr};
+    GstElement *m_h264parse{nullptr};
+    GstElement *m_aQueue{nullptr};
+    GstElement *m_aacparse{nullptr};
+    GstElement *m_avdec_aac{nullptr};
+    GstElement *m_audioconvert{nullptr};
+    bool m_firstVideoFrameReceived{false};
+    MiracastRTSPMsg *m_rtsp_reference_instance{nullptr};
 
     std::string m_uri;
+    guint64 m_streaming_port;
     int m_bus_watch_id{-1};
     bool m_bBuffering;
     bool m_is_live;
@@ -90,17 +86,10 @@ private:
 
     bool createPipeline();
     bool updateVideoSinkRectangle(void);
+    static void onFirstVideoFrameCallback(GstElement* object, guint arg0, gpointer arg1,gpointer userdata);
+    void notifyPlaybackState(eMIRA_GSTPLAYER_STATES gst_player_state);
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
     bool changePipelineState(GstState state) const;
-
-    static gboolean on_playbin2appsrc_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data);
-    static gboolean on_udpsrc2appsink_bus_message(GstBus *bus, GstMessage *msg, gpointer user_data);
-    static void playbin_source_setup(GstElement *pipeline, GstElement *source, gpointer user_data);
-    static void appsrc_need_data(GstAppSrc *src, guint length, gpointer user_data);
-    static void appsrc_enough_data(GstAppSrc *src, gpointer user_data);
-    static GstFlowReturn on_new_sample_from_udpsrc(GstElement *element, gpointer user_data);
-    static void configure_queue(GstElement * queue);
-    static void queue_callback(GstElement* object, gpointer user_data);
 
     static void *playbackThread(void *ctx);
     GMainLoop *m_main_loop{nullptr};
@@ -108,20 +97,7 @@ private:
     
     pthread_t m_player_statistics_tid;
     static void *monitor_player_statistics_thread(void *ctx);
-
-    GstElement *m_tsparse{nullptr};
-    GstElement *m_tsdemux{nullptr};
-
-    GstElement *m_vQueue{nullptr};
-    GstElement *m_h264parse{nullptr};
-
-    GstElement *m_aQueue{nullptr};
-    GstElement *m_aacparse{nullptr};
-    GstElement *m_avdec_aac{nullptr};
-    GstElement *m_audioconvert{nullptr};
-    static gboolean ManualPipelineBusCallback(GstBus *bus, GstMessage *msg, gpointer userdata);
-    static void new_pad_added_handler(GstElement *gstelement, GstPad *new_pad, gpointer userdata);
-    bool createNewManualPipeline();
+    static void pad_added_handler(GstElement *gstelement, GstPad *new_pad, gpointer userdata);
 };
 
 #endif /* MiracastGstPlayer_hpp */
