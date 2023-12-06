@@ -122,6 +122,12 @@ private:
     MiracastError create_ControllerFramework(std::string p2p_ctrl_iface);
     MiracastError destroy_ControllerFramework(void);
     void checkAndInitiateP2PBackendDiscovery(void);
+    MiracastError create_PersistentGroupCtrlInterface(std::string group_iface_name);
+    MiracastError connectionRequestHandling(std::string received_mac_address, bool isWPSPBC_Needed=false );
+    MiracastError initiate_WPSPBC(void);
+    std::string retrive_Connected_DevIPFromARP(std::string mac_address);
+    void initiate_LaunchRequest(std::string src_dev_name,std::string orgMacaddr,std::string p2p_dev_mac);
+    void notify_ClientConnectionErrorState(std::string mac_address, eMIRACAST_SERVICE_ERR_CODE error_code );
 
     void set_localIp(std::string ipAddr);
 
@@ -135,6 +141,8 @@ private:
     GroupInfo *m_groupInfo;
     bool m_connectionStatus;
     bool m_p2p_backend_discovery{false};
+    bool m_new_thunder_req_client_connection_sent{false};
+    bool m_another_thunder_req_client_connection_sent{false};
 
     /*members for interacting with wpa_supplicant*/
     MiracastP2P *m_p2p_ctrl_obj;
