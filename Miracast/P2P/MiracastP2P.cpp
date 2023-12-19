@@ -526,6 +526,10 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET p2p_ssid_postfix -Element-Xumo-TV";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
+	/* Set Device type */
+	command = "SET device_type 1-0050F204-1";
+	executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
         std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_grp_add");
         if (!opt_flag_buffer.empty())
         {
