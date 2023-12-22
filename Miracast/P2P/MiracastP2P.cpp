@@ -421,8 +421,8 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         else
         {
             command = "SET config_methods pbc";
-            executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         }
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
         /* Set Device type */
